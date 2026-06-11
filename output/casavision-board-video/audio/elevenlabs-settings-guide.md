@@ -7,15 +7,15 @@
 
 1. Go to [https://elevenlabs.io](https://elevenlabs.io)
 2. Log in to your account
-3. In the left sidebar, click **Speech Synthesis** (also labeled "Text to Speech")
+3. In the left sidebar, click **Text to Speech**
 
 ---
 
 ## Step 2: Select a Voice
 
 1. Click **Voice** dropdown at the top of the editor
-2. Click **Voice Library** to browse all available voices
-3. In the search bar, type **"Valentina"** — if available, select it
+2. To find a new voice, go to the **Voice Library** in the left sidebar. Browse or search for the voice you want, click **Add to My Voices**, then return to Text to Speech and select it from the **Voice** dropdown.
+3. In the Voice Library search bar, type **"Valentina"** — if available, add and select it
 4. If Valentina is not available, search **"Spanish"** and filter by:
    - Language: Spanish
    - Gender: Female (preferred) or Male (neutral)
@@ -35,6 +35,8 @@ Click the **Settings** or gear icon next to the voice selector and apply these e
 | Similarity | 75% |
 | Style | 30% |
 | Speed | 0.92 |
+
+> **Note:** the Style slider only appears for certain voices (v2 and v2.5 models). If you do not see it, the voice does not support this setting — proceed with Stability, Similarity, and Speed only.
 
 - **Stability at 55%** keeps the voice consistent without sounding robotic
 - **Similarity at 75%** preserves the selected voice's natural character
@@ -84,15 +86,14 @@ If any number is mispronounced, rewrite it phonetically in the script (e.g., rep
 
 ## Step 6: Download the Audio
 
-1. Once the preview passes quality check, click **Download**
-2. Select format: **MP3** (128 kbps or higher)
-3. Save the file as:
+1. Once the preview passes quality check, click **Download** — the file saves as MP3 automatically. (To change audio quality, go to your Profile > Settings before generating.)
+2. Save the file as:
 
 ```
 narration-full.mp3
 ```
 
-4. Save it to this same folder:
+3. Save it to this same folder:
 
 ```
 /output/casavision-board-video/audio/narration-full.mp3
