@@ -47,7 +47,9 @@ Kimberly abre Google Sheet
   → sitio refleja el cambio en tiempo real (sin redespliegue)
 ```
 
-### Google Sheets schema
+### Google Sheets — Estructura del archivo
+
+**Hoja 1: Tracking**
 | Columna | Tipo | Ejemplo |
 |---|---|---|
 | numero_tracking | string | CR-2026-001 |
@@ -55,6 +57,16 @@ Kimberly abre Google Sheet
 | descripcion | string | Tu paquete está en proceso de despacho |
 | fecha_actualizacion | date | 2026-06-27 |
 | paso_actual | number | 3 (1-5) |
+
+**Hoja 2: Noticias**
+| Columna | Tipo | Ejemplo |
+|---|---|---|
+| titulo | string | Black Friday — Envíos sin recargo |
+| descripcion | string | Del 28 al 30 de noviembre... |
+| fecha | date | 2026-11-28 |
+| activo | boolean | TRUE |
+
+Kimberly gestiona tracking y noticias desde el mismo archivo de Google Sheets.
 
 ---
 
@@ -104,7 +116,8 @@ Label:    Montserrat Medium 500    14px     → Botones, nav
 ### Componentes
 
 **Navbar**
-- Fondo blanco con backdrop-blur en scroll
+- En hero (top): transparente, texto blanco
+- Al hacer scroll: fondo blanco con backdrop-blur, texto navy — transición suave 300ms
 - Logo KIMO izquierda
 - Links de navegación centrados con smooth scroll
 - Botón "Rastrear paquete" teal a la derecha
