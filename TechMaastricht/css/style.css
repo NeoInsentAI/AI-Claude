@@ -113,3 +113,9 @@ img, svg { max-width: 100%; display: block; }
 .newsletter-form { display: flex; gap: 8px; flex-wrap: wrap; }
 .newsletter-form input { flex: 1; min-width: 140px; padding: 10px 14px; border-radius: 999px; border: none; font-family: var(--font-body); }
 .footer-bottom { max-width: var(--max-width); margin: 40px auto 0; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.15); font-size: 0.85rem; color: rgba(255,255,255,0.6); }
+
+.pillar-index { color: var(--color-red); font-family: var(--font-display); font-weight: 700; font-size: 0.85rem; letter-spacing: 0.05em; }
+.pillar-block { padding: 40px 0; border-bottom: 1px solid #eee; }
+.pillar-block:last-child { border-bottom: none; }
+.pillar-block h3 { margin-top: 8px; margin-bottom: 12px; font-size: 1.5rem; }
+.pillar-block p { max-width: 640px; }
