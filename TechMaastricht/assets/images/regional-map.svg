@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" role="img" aria-label="Diagram showing Maastricht at the connection point of the Netherlands, Germany, Belgium, and Luxembourg">
+  <title>Maastricht in the Meuse-Rhine Euroregion</title>
+  <rect width="900" height="700" fill="#FAF7F5"/>
+  <g stroke="#C8102E" stroke-width="2" opacity="0.5">
+    <line x1="450" y1="350" x2="680" y2="180"/>
+    <line x1="450" y1="350" x2="720" y2="460"/>
+    <line x1="450" y1="350" x2="260" y2="520"/>
+    <line x1="450" y1="350" x2="190" y2="220"/>
+  </g>
+  <circle cx="450" cy="350" r="20" fill="#C8102E"/>
+  <text x="450" y="395" text-anchor="middle" fill="#1A1A1A" font-family="Manrope, sans-serif" font-size="20" font-weight="700">Maastricht</text>
+  <circle cx="680" cy="180" r="10" fill="#1A1A1A"/>
+  <text x="680" y="160" text-anchor="middle" fill="#1A1A1A" font-family="Inter, sans-serif" font-size="16">Netherlands</text>
+  <circle cx="720" cy="460" r="10" fill="#1A1A1A"/>
+  <text x="720" y="490" text-anchor="middle" fill="#1A1A1A" font-family="Inter, sans-serif" font-size="16">Germany</text>
+  <circle cx="260" cy="520" r="10" fill="#1A1A1A"/>
+  <text x="260" y="550" text-anchor="middle" fill="#1A1A1A" font-family="Inter, sans-serif" font-size="16">Belgium</text>
+  <circle cx="190" cy="220" r="10" fill="#1A1A1A"/>
+  <text x="190" y="200" text-anchor="middle" fill="#1A1A1A" font-family="Inter, sans-serif" font-size="16">Luxembourg</text>
+</svg>

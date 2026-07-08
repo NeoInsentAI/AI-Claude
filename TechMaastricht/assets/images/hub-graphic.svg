@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Illustration of Maastricht as a connected hub linking the Netherlands, Germany, Belgium, and Luxembourg">
+  <title>Maastricht as a regional tech hub</title>
+  <rect width="800" height="600" fill="#1A1A1A"/>
+  <g stroke="#C8102E" stroke-width="1.5" opacity="0.6">
+    <line x1="400" y1="300" x2="620" y2="140"/>
+    <line x1="400" y1="300" x2="660" y2="380"/>
+    <line x1="400" y1="300" x2="220" y2="440"/>
+    <line x1="400" y1="300" x2="160" y2="180"/>
+  </g>
+  <circle cx="400" cy="300" r="14" fill="#C8102E"/>
+  <circle cx="620" cy="140" r="7" fill="#FAF7F5"/>
+  <circle cx="660" cy="380" r="7" fill="#FAF7F5"/>
+  <circle cx="220" cy="440" r="7" fill="#FAF7F5"/>
+  <circle cx="160" cy="180" r="7" fill="#FAF7F5"/>
+  <text x="400" y="332" text-anchor="middle" fill="#FAF7F5" font-family="Manrope, sans-serif" font-size="14" font-weight="700">MAASTRICHT</text>
+  <text x="620" y="128" text-anchor="middle" fill="#FAF7F5" font-family="Inter, sans-serif" font-size="13">NL</text>
+  <text x="660" y="400" text-anchor="middle" fill="#FAF7F5" font-family="Inter, sans-serif" font-size="13">DE</text>
+  <text x="220" y="462" text-anchor="middle" fill="#FAF7F5" font-family="Inter, sans-serif" font-size="13">BE</text>
+  <text x="160" y="166" text-anchor="middle" fill="#FAF7F5" font-family="Inter, sans-serif" font-size="13">LU</text>
+</svg>
