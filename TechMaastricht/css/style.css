@@ -103,7 +103,7 @@ img, svg { max-width: 100%; display: block; }
 .site-footer { background: var(--color-red-deep); color: var(--color-white); padding: 64px 24px 24px; }
 .footer-inner { max-width: var(--max-width); margin: 0 auto; display: grid; gap: 40px; grid-template-columns: 1fr; }
 @media (min-width: 768px) { .footer-inner { grid-template-columns: 2fr 1fr 1fr 1.4fr; } }
-.footer-inner h4 { color: var(--color-white); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+.footer-inner h3 { color: var(--color-white); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
 .footer-inner a { display: block; color: rgba(255,255,255,0.8); margin-bottom: 10px; }
 .footer-brand p { color: rgba(255,255,255,0.75); margin-top: 12px; font-size: 0.9rem; }
 .logo-footer { color: var(--color-white); }
