@@ -16,6 +16,8 @@ for page in "${PAGES[@]}"; do
   grep -q 'js/main.js' "$page" || { echo "FAIL: $page missing script tag"; fail=1; }
   grep -q '<footer' "$page" || { echo "FAIL: $page missing footer"; fail=1; }
   grep -q 'id="site-header"' "$page" || { echo "FAIL: $page missing site header"; fail=1; }
+  grep -q 'id="nav-toggle"' "$page" || { echo "FAIL: $page missing nav-toggle button"; fail=1; }
+  grep -q 'id="nav-links"' "$page" || { echo "FAIL: $page missing nav-links container"; fail=1; }
   for target in "${PAGES[@]}"; do
     grep -q "href=\"$target\"" "$page" || { echo "FAIL: $page missing nav link to $target"; fail=1; }
   done
