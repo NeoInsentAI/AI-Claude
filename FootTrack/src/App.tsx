@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './auth/AuthContext'
+import { AuthProvider, useAuth } from './auth/AuthContext'
 import { SignInPage } from './auth/SignInPage'
 import { SignUpPage } from './auth/SignUpPage'
 import { RequireAuth } from './routes/RequireAuth'
@@ -13,6 +13,8 @@ import { PlanPage } from './screens/PlanPage'
 import { ProfilePage } from './screens/ProfilePage'
 
 function AppShell() {
+  const { session } = useAuth()
+
   return (
     <>
       <Routes>
@@ -29,7 +31,7 @@ function AppShell() {
         <Route path="/sign-up" element={<SignUpPage />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
-      <NavBar />
+      {session && <NavBar />}
     </>
   )
 }
