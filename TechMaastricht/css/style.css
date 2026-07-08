@@ -135,3 +135,5 @@ img, svg { max-width: 100%; display: block; }
 .contact-info-list { list-style: none; }
 .contact-info-list li { margin-bottom: 20px; }
 .contact-info-list .label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-grey); margin-bottom: 4px; }
+
+.pillar-block .card-link { color: var(--color-red); font-weight: 600; font-size: 0.9rem; margin-top: 12px; display: inline-block; }
