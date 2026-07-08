@@ -1376,6 +1376,9 @@ Append to `TechMaastricht/css/style.css`:
 
     <section class="section">
       <div class="container">
+        <div class="section-header" style="text-align:left; margin-bottom: 24px;">
+          <h2>Who's in the room</h2>
+        </div>
         <div class="grid grid-4">
           <div class="card">
             <h3>Developers</h3>
