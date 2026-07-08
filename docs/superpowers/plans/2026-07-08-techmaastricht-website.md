@@ -893,6 +893,9 @@ Append to `TechMaastricht/css/style.css`:
 
     <section class="section">
       <div class="container">
+        <div class="section-header" style="text-align:left; margin-bottom: 24px;">
+          <h2>The Six Pillars</h2>
+        </div>
         <div class="pillar-block">
           <span class="pillar-index">01 — COMMUNITY</span>
           <h3>Meetups</h3>
