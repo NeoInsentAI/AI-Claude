@@ -14,7 +14,7 @@ insert into drills (category, title, objective, level, instructions, targets_fau
  '{shooting_followthrough_short}'),
 ('passing', 'Metronome Wall Passing', 'Build repeatable passing posture under tempo', 1,
  'Two-touch wall passing at a fixed tempo, 3 sets of 20 per foot. Tempo increases only once posture holds.',
- '{passing_plant_inconsistent,passing_ankle_unstable}'),
+ '{passing_plant_inconsistent}'),
 ('passing', 'Gate Finishing', 'Fix direction drift on passes', 2,
  'Pass through a narrow 2m cone gate 8m away, 3 sets of 8, alternating targets.',
  '{passing_direction_inconsistent}'),
