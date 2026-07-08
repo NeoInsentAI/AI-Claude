@@ -119,3 +119,8 @@ img, svg { max-width: 100%; display: block; }
 .pillar-block:last-child { border-bottom: none; }
 .pillar-block h3 { margin-top: 8px; margin-bottom: 12px; font-size: 1.5rem; }
 .pillar-block p { max-width: 640px; }
+
+.event-row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; justify-content: space-between; padding: 24px 0; border-bottom: 1px solid #eee; }
+.event-date { font-family: var(--font-display); font-weight: 700; color: var(--color-red); min-width: 120px; }
+.event-info h3 { margin-bottom: 4px; }
+.gallery-placeholder { aspect-ratio: 4 / 3; background: var(--color-offwhite); border-radius: var(--radius); display: flex; align-items: center; justify-content: center; color: var(--color-grey); font-size: 0.85rem; }
