@@ -43,6 +43,8 @@ for page in "${PAGES[@]}"; do
   grep -q 'js/main.js' "$page" || { echo "FAIL: $page missing script tag"; fail=1; }
   grep -q '<footer' "$page" || { echo "FAIL: $page missing footer"; fail=1; }
   grep -q 'id="site-header"' "$page" || { echo "FAIL: $page missing site header"; fail=1; }
+  grep -q 'id="nav-toggle"' "$page" || { echo "FAIL: $page missing nav-toggle button"; fail=1; }
+  grep -q 'id="nav-links"' "$page" || { echo "FAIL: $page missing nav-links container"; fail=1; }
   for target in "${PAGES[@]}"; do
     grep -q "href=\"$target\"" "$page" || { echo "FAIL: $page missing nav link to $target"; fail=1; }
   done
@@ -106,6 +108,7 @@ body {
   background: var(--color-white);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4 { font-family: var(--font-display); font-weight: 700; line-height: 1.2; }
@@ -123,29 +126,31 @@ img, svg { max-width: 100%; display: block; }
 .section-header { text-align: center; max-width: 640px; margin: 0 auto 48px; }
 .section-header p { margin-top: 12px; }
 
+/* Buttons */
 .btn { display: inline-block; padding: 12px 28px; border-radius: 999px; font-family: var(--font-body); font-weight: 600; font-size: 0.95rem; transition: background 0.2s, color 0.2s, border-color 0.2s; cursor: pointer; border: 2px solid transparent; }
 .btn-primary { background: var(--color-red); color: var(--color-white); }
 .btn-primary:hover { background: var(--color-red-deep); }
 .btn-secondary { border-color: var(--color-charcoal); color: var(--color-charcoal); }
 .btn-secondary:hover { background: var(--color-charcoal); color: var(--color-white); }
-.btn-secondary-light { border-color: var(--color-white); color: var(--color-white); }
-.btn-secondary-light:hover { background: var(--color-white); color: var(--color-red-deep); }
-.btn-secondary-inverse { border-color: var(--color-white); color: var(--color-white); background: transparent; }
+.btn-secondary-inverse { border-color: var(--color-white); color: var(--color-white); }
 .btn-secondary-inverse:hover { background: var(--color-white); color: var(--color-red-deep); }
+:focus-visible { outline: 2px solid var(--color-red); outline-offset: 2px; }
 
+/* Navbar */
 .site-header { position: fixed; top: 0; left: 0; right: 0; z-index: 100; transition: background 0.2s, box-shadow 0.2s; }
 .site-header.is-scrolled { background: var(--color-white); box-shadow: 0 1px 0 rgba(0,0,0,0.06); }
 .navbar { max-width: var(--max-width); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
 .logo { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; color: var(--color-charcoal); }
-.site-header:not(.is-scrolled) .navbar > .logo { color: var(--color-white); }
+.site-header--on-dark:not(.is-scrolled) .navbar > .logo { color: var(--color-white); }
 .logo-accent { color: var(--color-red); }
 .nav-links { display: none; align-items: center; gap: 28px; }
 .nav-links a { font-weight: 500; font-size: 0.95rem; color: var(--color-charcoal); }
-.site-header:not(.is-scrolled) .nav-links a:not(.nav-cta) { color: var(--color-white); }
+.site-header--on-dark:not(.is-scrolled) .nav-links a:not(.nav-cta) { color: var(--color-white); }
 .nav-cta { padding: 10px 22px; }
 .nav-toggle { display: flex; flex-direction: column; gap: 5px; background: none; border: none; cursor: pointer; z-index: 101; }
 .nav-toggle span { width: 24px; height: 2px; background: var(--color-charcoal); }
-.site-header:not(.is-scrolled) .nav-toggle span { background: var(--color-white); }
+.site-header--on-dark:not(.is-scrolled) .nav-toggle span { background: var(--color-white); }
+.site-header:has(.nav-links.is-open) .nav-toggle span { background: var(--color-charcoal); }
 @media (min-width: 1024px) {
   .nav-links { display: flex; }
   .nav-toggle { display: none; }
@@ -153,6 +158,11 @@ img, svg { max-width: 100%; display: block; }
 .nav-links.is-open { display: flex; flex-direction: column; position: fixed; inset: 0; background: var(--color-white); padding: 100px 24px 24px; gap: 24px; }
 .nav-links.is-open a { color: var(--color-charcoal) !important; font-size: 1.25rem; }
 
+/* Note: only the home page's <header> carries the extra `site-header--on-dark`
+   class (it sits over the dark .hero background). Every other page's header
+   uses the plain `class="site-header"` since .page-hero is light. */
+
+/* Hero */
 .hero { min-height: 100vh; display: flex; align-items: center; position: relative; background: var(--color-charcoal); overflow: hidden; }
 .hero-graphic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.9; }
 .hero-content { position: relative; z-index: 1; max-width: var(--max-width); margin: 0 auto; padding: 120px 24px 24px; color: var(--color-white); }
@@ -167,19 +177,22 @@ img, svg { max-width: 100%; display: block; }
 .grid-2 { grid-template-columns: 1fr; }
 .grid-3 { grid-template-columns: 1fr; }
 .grid-4 { grid-template-columns: 1fr; }
-@media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } .grid-4 { grid-template-columns: 1fr 1fr; } }
+@media (min-width: 640px) { .grid-2 { grid-template-columns: 1fr 1fr; } .grid-3 { grid-template-columns: 1fr 1fr; } .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 1024px) { .grid-3 { grid-template-columns: repeat(3, 1fr); } .grid-4 { grid-template-columns: repeat(4, 1fr); } }
 
+/* Cards */
 .card { background: var(--color-white); border: 1px solid #eee; border-radius: var(--radius); padding: 32px; box-shadow: 0 2px 12px rgba(0,0,0,0.04); }
 .card h3 { margin-bottom: 12px; }
 .card p { font-size: 0.95rem; }
 .card .card-number { color: var(--color-red); font-family: var(--font-display); font-weight: 700; font-size: 0.9rem; margin-bottom: 12px; display: block; }
 .card a.card-link { color: var(--color-red); font-weight: 600; font-size: 0.9rem; margin-top: 12px; display: inline-block; }
 
+/* CTA band */
 .cta-band { background: var(--color-red); color: var(--color-white); text-align: center; padding: 80px 24px; }
 .cta-band h2 { color: var(--color-white); margin-bottom: 16px; }
 .cta-band p { color: rgba(255,255,255,0.9); margin-bottom: 28px; max-width: 560px; margin-left: auto; margin-right: auto; }
 
+/* Footer */
 .site-footer { background: var(--color-red-deep); color: var(--color-white); padding: 64px 24px 24px; }
 .footer-inner { max-width: var(--max-width); margin: 0 auto; display: grid; gap: 40px; grid-template-columns: 1fr; }
 @media (min-width: 768px) { .footer-inner { grid-template-columns: 2fr 1fr 1fr 1.4fr; } }
@@ -437,7 +450,7 @@ No commit for this task — it's a reference used by every page task from here o
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="site-header" id="site-header">
+  <header class="site-header site-header--on-dark" id="site-header">
     <nav class="navbar">
       <a href="index.html" class="logo">Tech<span class="logo-accent">Maastricht</span></a>
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
@@ -464,7 +477,7 @@ No commit for this task — it's a reference used by every page task from here o
         <p>We're building the talent, community, and cross-border network that make Maastricht the hub connecting tech in the Netherlands, Germany, Belgium, and Luxembourg.</p>
         <div class="hero-ctas">
           <a href="contact.html" class="btn btn-primary">Join the Community</a>
-          <a href="programs.html" class="btn btn-secondary-light">Explore Programs</a>
+          <a href="programs.html" class="btn btn-secondary-inverse">Explore Programs</a>
         </div>
       </div>
     </section>
