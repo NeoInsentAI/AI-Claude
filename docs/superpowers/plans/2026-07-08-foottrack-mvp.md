@@ -2186,20 +2186,34 @@ export async function saveSessionResults(
     if (repsError) throw repsError
   }
 
-  const { error: feedbackError } = await supabase.from('feedback_items').insert(
-    analysis.feedback.map((f) => ({
+  const feedbackRows = await Promise.all(
+    analysis.feedback.map(async (f) => ({
       session_id: session.id,
       kind: f.kind,
       fault_tag: f.faultTag,
       copy: f.copy,
       rank: f.rank,
+      drill_id: await findDrillForFault(f.faultTag),
     }))
   )
+  const { error: feedbackError } = await supabase.from('feedback_items').insert(feedbackRows)
   if (feedbackError) throw feedbackError
 
   await updateSkillScores(profileId, skill, footFocus, analysis)
 
   return session.id
+}
+
+/** Looks up one drill whose targets_fault_tags includes this fault. Win items have faultTag: null and never get a drill. */
+async function findDrillForFault(faultTag: string | null): Promise<string | null> {
+  if (!faultTag) return null
+  const { data } = await supabase
+    .from('drills')
+    .select('id')
+    .contains('targets_fault_tags', [faultTag])
+    .limit(1)
+    .maybeSingle()
+  return data?.id ?? null
 }
 
 async function updateSkillScores(profileId: string, skill: Skill, footFocus: Foot, analysis: SessionAnalysis) {
@@ -2483,6 +2497,7 @@ interface FeedbackRow {
   fault_tag: string | null
   copy: string
   rank: number
+  drills: { title: string; objective: string; instructions: string } | null
 }
 
 export function FeedbackPage() {
@@ -2494,8 +2509,8 @@ export function FeedbackPage() {
     if (!sessionId) return
     supabase.from('training_sessions').select('id, skill, session_score, created_at').eq('id', sessionId).single()
       .then(({ data }) => setSession(data))
-    supabase.from('feedback_items').select('id, kind, fault_tag, copy, rank').eq('session_id', sessionId).order('rank')
-      .then(({ data }) => setFeedback(data ?? []))
+    supabase.from('feedback_items').select('id, kind, fault_tag, copy, rank, drills(title, objective, instructions)').eq('session_id', sessionId).order('rank')
+      .then(({ data }) => setFeedback((data as unknown as FeedbackRow[]) ?? []))
   }, [sessionId])
 
   if (!session) return <p>Loading feedback…</p>
@@ -2513,6 +2528,12 @@ export function FeedbackPage() {
         <section aria-label="Priority fix">
           <h2>Fix this first</h2>
           <p>{priorityFix.copy}</p>
+          {priorityFix.drills && (
+            <div>
+              <strong>Fix it: {priorityFix.drills.title}</strong>
+              <p>{priorityFix.drills.instructions}</p>
+            </div>
+          )}
         </section>
       )}
 
@@ -2526,7 +2547,14 @@ export function FeedbackPage() {
       {corrections.length > 0 && (
         <section aria-label="More corrections">
           <h2>More corrections ({corrections.length})</h2>
-          <ul>{corrections.map((c) => <li key={c.id}>{c.copy}</li>)}</ul>
+          <ul>
+            {corrections.map((c) => (
+              <li key={c.id}>
+                {c.copy}
+                {c.drills && <> — <em>{c.drills.title}</em></>}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </div>
@@ -2791,6 +2819,23 @@ export async function generateWeeklyPlan(profileId: string): Promise<string> {
 
   const { data: drills } = await supabase.from('drills').select('id, category').in('category', focusAreas)
   const chosen = (drills ?? []).slice(0, 3)
+
+  // Weak-foot drills live in their own category and are never one of focusAreas (which is always shooting/passing/first_touch),
+  // so without this they'd never be reachable — cross-checked against the account-wide weak_foot_confidence score instead.
+  const { data: weakFootScore } = await supabase
+    .from('skill_scores')
+    .select('value')
+    .eq('profile_id', profileId)
+    .eq('attribute', 'weak_foot_confidence')
+    .order('computed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (weakFootScore && weakFootScore.value < 65) {
+    const { data: weakFootDrills } = await supabase.from('drills').select('id').eq('category', 'weak_foot').limit(1)
+    if (weakFootDrills && weakFootDrills.length > 0) chosen.push({ id: weakFootDrills[0].id, category: 'weak_foot' })
+  }
+
   if (chosen.length > 0) {
     await supabase.from('plan_items').insert(
       chosen.map((d, i) => ({ plan_id: plan.id, drill_id: d.id, target_day: (i + 1) * 2 }))
@@ -3102,6 +3147,8 @@ git commit -m "docs: record FootTrack production URL"
 - `sampleIntervalMs = 33` in `extractPoseFrames` (Task 11) processes video roughly frame-by-frame; on a long clip or a slow phone this could be slow, since each sample does a `video.currentTime` seek-and-wait round trip. If Task 15's manual QA pass shows this is too slow in practice, drop to `sampleIntervalMs = 66` (≈15fps) first, per the design doc's own risk note (§12), before considering anything more drastic.
 
 **Follow-up flagged during Task 2 code review (not a blocker, tracked for a later task):** `supabase.ts` throws at module-load time if env vars are missing — correct for local dev (Vite's overlay catches it), but in a deployed build this fails silently in every user's browser as a blank screen (no React ErrorBoundary catches a top-level module-eval throw), and `vite-plugin-pwa`'s service worker can cache that broken bundle. Worth adding, in a later task once the app shell exists: build-time env validation (so a misconfigured deploy fails at build/CI instead of at runtime) and a top-level ErrorBoundary with a friendly fallback.
+
+**Fixed after Task 4's code review surfaced a real structural gap (not a Task 4 defect — Task 4's seed data was correct; the gap was in how later tasks were specced to consume it):** `targets_fault_tags` had no reader anywhere in the original draft of Tasks 13/15 — `feedback_items` was inserted without ever setting `drill_id`, so the "Fix It" drill prescription (design doc §7) was never actually wired up. Fixed: Task 15's `saveSessionResults` now looks up a matching drill per fault tag (`findDrillForFault`, using Postgres `contains` on `targets_fault_tags`) and sets `drill_id` on each feedback item; Task 16's Feedback screen now joins and displays the drill. Separately, `weak_foot` category drills were unreachable by both the fault-tag route (no fault rule ever produces `weak_foot_gap`) and the weekly-plan route (`generateWeeklyPlan`'s category filter is always shooting/passing/first_touch) — fixed by having Task 18's plan generator also check the account's `weak_foot_confidence` score and append a weak-foot drill when it's below 65. `balance` category drills didn't need an equivalent fix — they're already reachable via the fault-tag route (`shooting_balance_wobble` etc. are real `FAULT_RULES` tags).
 
 **Type consistency check:** verified that every cross-file call site (`analyzeSession` → `metrics.ts` functions, `saveSessionResults` → `analyzeSession`'s `SessionAnalysis` shape → the `rep_events`/`feedback_items`/`skill_scores` column names from Task 3's schema, `generatePlan` → `drills`/`plans`/`plan_items` columns) uses matching parameter order, field names, and types. No mismatches found beyond the two fixed inline above.
 
