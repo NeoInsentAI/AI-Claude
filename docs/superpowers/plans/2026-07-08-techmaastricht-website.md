@@ -843,6 +843,7 @@ Append to `TechMaastricht/css/style.css`:
 .pillar-block:last-child { border-bottom: none; }
 .pillar-block h3 { margin-top: 8px; margin-bottom: 12px; font-size: 1.5rem; }
 .pillar-block p { max-width: 640px; }
+.pillar-block .card-link { color: var(--color-red); font-weight: 600; font-size: 0.9rem; margin-top: 12px; display: inline-block; }
 ```
 
 - [ ] **Step 2: Write the page**
@@ -900,31 +901,37 @@ Append to `TechMaastricht/css/style.css`:
           <span class="pillar-index">01 — COMMUNITY</span>
           <h3>Meetups</h3>
           <p>Recurring local meetups and socials for developers and tech enthusiasts across South Limburg — lightning talks, demo nights, and simply a reason to get out from behind the screen and meet the people building alongside you.</p>
+          <a href="contact.html" class="card-link">Ask about Meetups →</a>
         </div>
         <div class="pillar-block">
           <span class="pillar-index">02 — CAREER</span>
           <h3>Mentorship</h3>
           <p>We pair experienced tech professionals with newcomers and career-switchers, matched on goals rather than just job titles. Mentors commit to a few hours a month; mentees get a real sounding board for the decisions that matter most early in a career.</p>
+          <a href="contact.html" class="card-link">Ask about Mentorship →</a>
         </div>
         <div class="pillar-block">
           <span class="pillar-index">03 — SKILLS</span>
           <h3>Workforce Training</h3>
           <p>Part-time, bootcamp-style upskilling programs built around the roles regional employers are actually hiring for — not a generic curriculum, but one shaped by conversations with the companies doing the hiring.</p>
+          <a href="contact.html" class="card-link">Ask about Workforce Training →</a>
         </div>
         <div class="pillar-block">
           <span class="pillar-index">04 — PIPELINE</span>
           <h3>Student & Youth Outreach</h3>
           <p>Partnership programs with Maastricht University, Zuyd Hogeschool, and local secondary schools — introducing students to tech careers early and giving them a direct line into the community before they graduate.</p>
+          <a href="contact.html" class="card-link">Ask about Student & Youth Outreach →</a>
         </div>
         <div class="pillar-block">
           <span class="pillar-index">05 — ENTREPRENEURSHIP</span>
           <h3>Startup Support</h3>
           <p>Office hours, warm introductions, and a peer network for early-stage tech founders based in or building for the region — because a great idea shouldn't stall for lack of the right connection.</p>
+          <a href="contact.html" class="card-link">Ask about Startup Support →</a>
         </div>
         <div class="pillar-block">
           <span class="pillar-index">06 — REGIONAL</span>
           <h3>Cross-Border Exchange</h3>
           <p>Joint programs and events run together with tech communities in Aachen (Germany), Liège (Belgium), and Luxembourg City — shared hackathons, speaker exchanges, and a growing sense that this is one talent market, not four separate ones.</p>
+          <a href="contact.html" class="card-link">Ask about Cross-Border Exchange →</a>
         </div>
       </div>
     </section>
