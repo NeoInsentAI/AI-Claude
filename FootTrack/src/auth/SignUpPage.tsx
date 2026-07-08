@@ -6,13 +6,19 @@ export function SignUpPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
-    const { error } = await supabase.auth.signUp({ email, password })
-    if (error) setError(error.message)
-    else setDone(true)
+    setIsSubmitting(true)
+    try {
+      const { error } = await supabase.auth.signUp({ email, password })
+      if (error) setError(error.message)
+      else setDone(true)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   if (done) return <p>Check your email to confirm your account, then sign in.</p>
@@ -22,14 +28,14 @@ export function SignUpPage() {
       <h1>Create account</h1>
       <label>
         Email
-        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
       </label>
       <label>
         Password
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+        <input type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
       </label>
       {error && <p role="alert">{error}</p>}
-      <button type="submit">Create account</button>
+      <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Creating account…' : 'Create account'}</button>
     </form>
   )
 }
