@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact — TechMaastricht</title>
+  <meta name="description" content="Get in touch with TechMaastricht — join the community, ask about programs, or explore a partnership across the Netherlands, Germany, Belgium, and Luxembourg.">
+  <meta property="og:title" content="Contact — TechMaastricht">
+  <meta property="og:description" content="Get in touch or join the community.">
+  <meta property="og:image" content="assets/images/hub-graphic.svg">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header" id="site-header">
+    <nav class="navbar">
+      <a href="index.html" class="logo">Tech<span class="logo-accent">Maastricht</span></a>
+      <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="nav-links" id="nav-links">
+        <a href="index.html">Home</a>
+        <a href="about.html">About</a>
+        <a href="programs.html">Programs</a>
+        <a href="regional-hub.html">Regional Hub</a>
+        <a href="events.html">Events</a>
+        <a href="community.html">Community</a>
+        <a href="contact.html">Contact</a>
+        <a href="contact.html" class="btn btn-primary nav-cta">Join the Community</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="page-hero">
+      <h1>Let's talk</h1>
+      <p>Whether you want to join, mentor, partner, or just ask a question — this is the fastest way to reach us.</p>
+    </section>
+
+    <section class="section">
+      <div class="container grid grid-2">
+        <div>
+          <h2>Send a message</h2>
+          <form class="contact-form" style="margin-top: 24px;" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+            <div>
+              <label for="name">Name</label>
+              <input type="text" id="name" name="name" required>
+            </div>
+            <div>
+              <label for="email">Email</label>
+              <input type="email" id="email" name="email" required>
+            </div>
+            <div>
+              <label for="reason">I'm reaching out about</label>
+              <input type="text" id="reason" name="reason" placeholder="Joining, mentoring, partnership, event, other">
+            </div>
+            <div>
+              <label for="message">Message</label>
+              <textarea id="message" name="message" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Send Message</button>
+          </form>
+        </div>
+        <div>
+          <h2>Other ways to reach us</h2>
+          <ul class="contact-info-list" style="margin-top: 24px;">
+            <li>
+              <span class="label">Email</span>
+              <a href="mailto:hello@techmaastricht.org">hello@techmaastricht.org</a>
+            </li>
+            <li>
+              <span class="label">Hub location</span>
+              Maastricht, Limburg, The Netherlands
+            </li>
+            <li>
+              <span class="label">Social</span>
+              <div class="social-links" style="color: var(--color-charcoal);">
+                <a href="https://linkedin.com/company/techmaastricht" target="_blank" rel="noopener" style="color: var(--color-charcoal);">LinkedIn</a>
+                <a href="https://instagram.com/techmaastricht" target="_blank" rel="noopener" style="color: var(--color-charcoal);">Instagram</a>
+                <a href="https://x.com/techmaastricht" target="_blank" rel="noopener" style="color: var(--color-charcoal);">X</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <a href="index.html" class="logo logo-footer">Tech<span class="logo-accent">Maastricht</span></a>
+        <p>Growing tech talent in Maastricht and connecting it across the Netherlands, Germany, Belgium, and Luxembourg.</p>
+      </div>
+      <div class="footer-links">
+        <h4>Explore</h4>
+        <a href="about.html">About</a>
+        <a href="programs.html">Programs</a>
+        <a href="regional-hub.html">Regional Hub</a>
+        <a href="events.html">Events</a>
+        <a href="community.html">Community</a>
+        <a href="contact.html">Contact</a>
+      </div>
+      <div class="footer-contact">
+        <h4>Connect</h4>
+        <a href="mailto:hello@techmaastricht.org">hello@techmaastricht.org</a>
+        <div class="social-links">
+          <a href="https://linkedin.com/company/techmaastricht" target="_blank" rel="noopener">LinkedIn</a>
+          <a href="https://instagram.com/techmaastricht" target="_blank" rel="noopener">Instagram</a>
+          <a href="https://x.com/techmaastricht" target="_blank" rel="noopener">X</a>
+        </div>
+      </div>
+      <div class="footer-newsletter">
+        <h4>Stay in the loop</h4>
+        <form class="newsletter-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+          <input type="email" name="email" placeholder="your@email.com" required aria-label="Email address">
+          <button type="submit" class="btn btn-secondary-inverse">Subscribe</button>
+        </form>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 TechMaastricht. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
