@@ -156,7 +156,7 @@ img, svg { max-width: 100%; display: block; }
   .nav-toggle { display: none; }
 }
 .nav-links.is-open { display: flex; flex-direction: column; position: fixed; inset: 0; background: var(--color-white); padding: 100px 24px 24px; gap: 24px; }
-.nav-links.is-open a { color: var(--color-charcoal) !important; font-size: 1.25rem; }
+.nav-links.is-open a:not(.nav-cta) { color: var(--color-charcoal) !important; font-size: 1.25rem; }
 
 /* Note: only the home page's <header> carries the extra `site-header--on-dark`
    class (it sits over the dark .hero background). Every other page's header
@@ -1384,7 +1384,7 @@ Append to `TechMaastricht/css/style.css`:
     <section class="section">
       <div class="container">
         <div class="section-header" style="text-align:left; margin-bottom: 24px;">
-          <h2>Who's in the room</h2>
+          <h2>The people</h2>
         </div>
         <div class="grid grid-4">
           <div class="card">
