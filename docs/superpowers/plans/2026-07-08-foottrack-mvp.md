@@ -326,9 +326,9 @@ insert into drills (category, title, objective, level, instructions, targets_fau
 ('shooting', 'Plant Target Reps', 'Build consistent plant-foot placement', 1,
  'Place a flat marker where your plant foot should land. 3 sets of 10 strikes at 60% power — the only goal is landing your plant foot on the marker every time. Power comes back only after 8/10 placement accuracy.',
  '{shooting_plant_inconsistent}'),
-('shooting', 'Chest-Over-Ball Finishes', 'Fix backward lean at contact', 1,
+('shooting', 'Chest-Over-Ball Finishes', 'Build a stable, upright torso through contact', 1,
  'Short-range low-drive finishes from 8m, 3 sets of 8 per foot. Cue: chest finishes over the ball, not behind it.',
- '{shooting_lean_back}'),
+ '{shooting_torso_lean}'),
 ('shooting', 'Stick-the-Landing Finishes', 'Build a stable landing after the strike', 1,
  'Every strike must end frozen in a stable athletic stance for a 2-count. Power capped at 70% until 8/10 stable landings.',
  '{shooting_landing_unstable}'),
@@ -1559,19 +1559,19 @@ import type { MetricResult } from '../analysis/types'
 const m = (value: number, confidence = 1): MetricResult => ({ value, confidence })
 
 describe('detectFaults', () => {
-  it('flags shooting_lean_back when body lean exceeds the threshold', () => {
+  it('flags shooting_torso_lean when body lean exceeds the threshold', () => {
     const faults = detectFaults('shooting', { bodyLean: m(22), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) })
-    expect(faults.map((f) => f.tag)).toContain('shooting_lean_back')
+    expect(faults.map((f) => f.tag)).toContain('shooting_torso_lean')
   })
 
-  it('does not flag shooting_lean_back for an upright torso', () => {
+  it('does not flag shooting_torso_lean for an upright torso', () => {
     const faults = detectFaults('shooting', { bodyLean: m(4), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) })
-    expect(faults.map((f) => f.tag)).not.toContain('shooting_lean_back')
+    expect(faults.map((f) => f.tag)).not.toContain('shooting_torso_lean')
   })
 
   it('ignores a metric below the confidence floor', () => {
     const faults = detectFaults('shooting', { bodyLean: m(22, 0.3), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) })
-    expect(faults.map((f) => f.tag)).not.toContain('shooting_lean_back')
+    expect(faults.map((f) => f.tag)).not.toContain('shooting_torso_lean')
   })
 
   it('flags first_touch_closed_stance for a near-zero receiving angle', () => {
@@ -1588,7 +1588,7 @@ describe('aggregateFaults', () => {
       detectFaults('shooting', { bodyLean: m(3), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) }),
     ]
     const ranked = aggregateFaults(perRep)
-    expect(ranked[0].tag).toBe('shooting_lean_back')
+    expect(ranked[0].tag).toBe('shooting_torso_lean')
     expect(ranked[0].frequency).toBeCloseTo(2 / 3)
   })
 
@@ -1636,7 +1636,7 @@ export interface AggregatedFault {
 }
 
 export const FAULT_RULES: FaultRule[] = [
-  { tag: 'shooting_lean_back', skill: 'shooting', metricKey: 'bodyLean', direction: 'above', threshold: 15, impact: 0.9, fixability: 0.8 },
+  { tag: 'shooting_torso_lean', skill: 'shooting', metricKey: 'bodyLean', direction: 'above', threshold: 15, impact: 0.9, fixability: 0.8 },
   { tag: 'shooting_balance_wobble', skill: 'shooting', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.7, fixability: 0.7 },
   { tag: 'shooting_followthrough_short', skill: 'shooting', metricKey: 'followThrough', direction: 'below', threshold: 0.08, impact: 0.6, fixability: 0.7 },
   { tag: 'shooting_landing_unstable', skill: 'shooting', metricKey: 'landing', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.6 },
@@ -1727,18 +1727,18 @@ import type { AggregatedFault } from './faultTaxonomy'
 describe('generateFeedback', () => {
   it('puts the highest-priority fault first as the priority fix', () => {
     const faults: AggregatedFault[] = [
-      { tag: 'shooting_lean_back', frequency: 0.7, avgSeverity: 0.5, priority: 0.5 },
+      { tag: 'shooting_torso_lean', frequency: 0.7, avgSeverity: 0.5, priority: 0.5 },
       { tag: 'shooting_balance_wobble', frequency: 0.3, avgSeverity: 0.2, priority: 0.1 },
     ]
     const items = generateFeedback(faults)
     expect(items[0].kind).toBe('priority_fix')
-    expect(items[0].faultTag).toBe('shooting_lean_back')
+    expect(items[0].faultTag).toBe('shooting_torso_lean')
     expect(items[0].copy.length).toBeGreaterThan(0)
   })
 
   it('caps corrections at 2 items beyond the priority fix', () => {
     const faults: AggregatedFault[] = [
-      { tag: 'shooting_lean_back', frequency: 0.9, avgSeverity: 0.5, priority: 0.9 },
+      { tag: 'shooting_torso_lean', frequency: 0.9, avgSeverity: 0.5, priority: 0.9 },
       { tag: 'shooting_balance_wobble', frequency: 0.6, avgSeverity: 0.4, priority: 0.6 },
       { tag: 'shooting_landing_unstable', frequency: 0.5, avgSeverity: 0.3, priority: 0.4 },
       { tag: 'shooting_plant_inconsistent', frequency: 0.4, avgSeverity: 0.2, priority: 0.2 },
@@ -1775,8 +1775,8 @@ export interface FeedbackItemDraft {
 }
 
 const COPY_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
-  shooting_lean_back: (f) =>
-    `You're leaning back on ${Math.round(f.frequency * 100)}% of your strikes — that's why shots are flying high. Picture your chest finishing over the ball.`,
+  shooting_torso_lean: (f) =>
+    `Your torso is pulling well off vertical on ${Math.round(f.frequency * 100)}% of your strikes — that instability is costing you accuracy. Focus on staying tall and balanced through contact.`,
   shooting_balance_wobble: (f) =>
     `Your balance wavers before contact on ${Math.round(f.frequency * 100)}% of reps. A steadier approach will make everything downstream more consistent.`,
   shooting_followthrough_short: () =>
@@ -1795,7 +1795,7 @@ const COPY_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
 }
 
 const WIN_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
-  shooting_lean_back: () => `Your torso stayed upright and balanced on most of your strikes.`,
+  shooting_torso_lean: () => `Your torso stayed upright and balanced on most of your strikes.`,
   shooting_balance_wobble: () => `Your pre-contact balance was steady across the session.`,
   shooting_followthrough_short: () => `Your follow-through carried all the way through the target line.`,
   shooting_landing_unstable: () => `You stuck your landing cleanly on most shots.`,
@@ -2441,7 +2441,7 @@ import { FeedbackPage } from './FeedbackPage'
 vi.mock('../lib/supabase', () => {
   const session = { id: 's1', skill: 'shooting', session_score: 74, created_at: '2026-07-08T00:00:00Z' }
   const feedback = [
-    { id: 'f1', kind: 'priority_fix', fault_tag: 'shooting_lean_back', copy: 'Lean forward more.', rank: 0 },
+    { id: 'f1', kind: 'priority_fix', fault_tag: 'shooting_torso_lean', copy: 'Lean forward more.', rank: 0 },
     { id: 'f2', kind: 'win', fault_tag: null, copy: 'Great follow-through.', rank: 0 },
   ]
   return {
@@ -3153,6 +3153,8 @@ git commit -m "docs: record FootTrack production URL"
 **Fixed after Task 6's code review:** the plan's own `AppShell` reference code rendered `<NavBar />` unconditionally, visible on `/sign-in`/`/sign-up` before any session existed. Fixed in the implementation (not re-edited above, since Task 6 is done) — `AppShell` now calls `useAuth()` and renders `{session && <NavBar />}`. Anyone touching `AppShell` in a later task should preserve that conditional.
 
 **Backlog item flagged during Task 7's code review, not fixed (needs its own design decision, not a quick patch):** there's no first-run enforcement routing a new user to `/onboarding` before `/home` — `RequireAuth` only checks session presence, not profile completeness, and the catch-all route sends unknown paths to `/home` rather than `/onboarding`. A user can reach the app with `dominant_foot: null` forever if they never manually visit `/onboarding`. Worth deciding before Tasks 15/16 (which assume a populated `dominant_foot` for foot-focus defaults) whether to: (a) have `RequireAuth` also check `profiles.dominant_foot is null` and redirect to onboarding, or (b) have the Home screen (Task 16) detect it and prompt inline. Not blocking this build, but shouldn't be forgotten.
+
+**Critical fix from Task 8's code review — real, not theoretical, caught before it shipped false coaching claims:** `angleFromVertical()` is mathematically direction-agnostic (uses `Math.abs()` on both axes, so it measures magnitude of lean, never which way). The original draft of Task 12/13 had a fault tag `shooting_lean_back` with copy asserting "you're leaning back... shots flying high" — a specific direction this metric structurally cannot detect. A player leaning *forward* would trigger the identical value and get told the opposite of the truth. Traced forward through Tasks 12/13/4 (drill seed, KPI wording) before any of that code existed and fixed at the source: renamed the tag to `shooting_torso_lean` throughout, rewrote the copy to claim only "off vertical / instability," not a direction, and updated the already-seeded "Chest-Over-Ball Finishes" drill's objective to match (its `targets_fault_tags` in the live DB was updated to match — see below). Considered and rejected a signed-lean approach (deriving a reference "forward" direction from the striking foot's swing velocity) as too much unproven cross-task complexity to add this late; direction-agnostic is the honest, shippable choice for MVP, consistent with the product's own "never claim what you can't measure" principle. `landmarkConfidence([])` also had a related latent risk (`Infinity` instead of `0`, which would have silently defeated the Task 12 confidence-floor exclusion) — fixed in the implemented code, not just the plan.
 
 **Type consistency check:** verified that every cross-file call site (`analyzeSession` → `metrics.ts` functions, `saveSessionResults` → `analyzeSession`'s `SessionAnalysis` shape → the `rep_events`/`feedback_items`/`skill_scores` column names from Task 3's schema, `generatePlan` → `drills`/`plans`/`plan_items` columns) uses matching parameter order, field names, and types. No mismatches found beyond the two fixed inline above.
 
