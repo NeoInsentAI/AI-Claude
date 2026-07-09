@@ -36,6 +36,9 @@ describe('angleBetweenVectors', () => {
   it('is 180 for opposite vectors', () => {
     expect(angleBetweenVectors({ x: 1, y: 0 }, { x: -1, y: 0 })).toBeCloseTo(180)
   })
+  it('is 0 for a zero-magnitude vector (documented, not undefined, behavior)', () => {
+    expect(angleBetweenVectors({ x: 0, y: 0 }, { x: 1, y: 0 })).toBe(0)
+  })
 })
 
 describe('stddev', () => {
@@ -53,5 +56,8 @@ describe('landmarkConfidence', () => {
   })
   it('defaults missing visibility to 1', () => {
     expect(landmarkConfidence([{ x: 0, y: 0, z: 0 }])).toBe(1)
+  })
+  it('returns 0 (minimum confidence) for an empty landmarks array', () => {
+    expect(landmarkConfidence([])).toBe(0)
   })
 })
