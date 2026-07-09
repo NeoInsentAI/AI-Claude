@@ -77,9 +77,10 @@ http://localhost:8000/en/ (English homepage).
 
 ## Adding a language switcher target
 
-Every page's navbar has a small NL/EN toggle (`.lang-switch`). To keep the no-templating
-architecture simple, each language's toggle always points to the OTHER language's
-**homepage** (not the exact equivalent page) — e.g. every Dutch page's "EN" link goes to
-`en/index.html`, and every English page's "NL" link goes to `../index.html`. If you want
-page-for-page switching instead, you'll need to update all 14 files' `.lang-switch` links
-individually (no shared template to edit once).
+Every page's navbar has a small NL/EN toggle (`.lang-switch`). Each language's toggle
+points to the page-for-page equivalent in the other language — e.g. `programs.html`'s
+"EN" link goes to `en/programs.html`, and `en/programs.html`'s "NL" link goes to
+`../programs.html`. The homepage is the only page where both directions naturally point
+to `index.html`. Because the site has no shared template, if you rename or add a page
+you'll need to update its `.lang-switch` link (and the corresponding link on its
+counterpart page) by hand — there's no single place to edit once.
