@@ -115,15 +115,17 @@ describe('cushioningMotion', () => {
 })
 
 describe('ankleLockDeviation', () => {
+  // Knee above ankle (shin runs straight up), foot-index continuing the shin's line downward past the
+  // ankle with only a slight lateral offset — a pointed/plantarflexed "locked" ankle, roughly 165-180 degrees.
   it('is near 0 when the ankle joint is close to the locked reference angle', () => {
     const f = frame(0, {
-      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.58, 0.92),
+      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.52, 1.15),
     })
     expect(ankleLockDeviation(f, LM.RIGHT_KNEE, LM.RIGHT_ANKLE, LM.RIGHT_FOOT_INDEX).value).toBeLessThan(30)
   })
   it('caps confidence at 0.7 since it is an Estimated signal', () => {
     const f = frame(0, {
-      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.58, 0.92),
+      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.52, 1.15),
     })
     expect(ankleLockDeviation(f, LM.RIGHT_KNEE, LM.RIGHT_ANKLE, LM.RIGHT_FOOT_INDEX).confidence).toBeLessThanOrEqual(0.7)
   })

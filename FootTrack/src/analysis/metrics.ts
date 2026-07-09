@@ -111,11 +111,8 @@ export function cushioningMotion(
 }
 
 /**
- * Degrees of deviation of the ankle joint angle (knee-ankle-footIndex, vectors from the ankle vertex) from a
- * "locked" reference angle at contact. The reference is 90 degrees — the standard neutral/anatomical ankle
- * position where the foot sits perpendicular to the shin — not a fully plantarflexed pointed-toe extension
- * (which would read close to 180 degrees under this vector convention). Estimated confidence, capped at 0.7 —
- * single-camera ankle angle is a rough proxy.
+ * Degrees of deviation of the ankle joint angle (knee-ankle-footIndex) from a "locked" extended reference of
+ * 165 degrees at contact. Estimated confidence, capped at 0.7 — single-camera ankle angle is a rough proxy.
  */
 export function ankleLockDeviation(f: PoseFrame, kneeIdx: number, ankleIdx: number, footIndexIdx: number): MetricResult {
   const knee = f.landmarks[kneeIdx]
@@ -124,7 +121,7 @@ export function ankleLockDeviation(f: PoseFrame, kneeIdx: number, ankleIdx: numb
   const shin = { x: knee.x - ankle.x, y: knee.y - ankle.y }
   const foot = { x: footIndex.x - ankle.x, y: footIndex.y - ankle.y }
   const jointAngle = angleBetweenVectors(shin, foot)
-  const LOCKED_REFERENCE_DEG = 90
+  const LOCKED_REFERENCE_DEG = 165
   const value = Math.abs(jointAngle - LOCKED_REFERENCE_DEG)
   const confidence = Math.min(landmarkConfidence([knee, ankle, footIndex]), 0.7)
   return { value, confidence }
