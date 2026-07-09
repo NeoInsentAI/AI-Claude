@@ -1658,6 +1658,10 @@ export const FAULT_RULES: FaultRule[] = [
   { tag: 'passing_direction_inconsistent', skill: 'passing', metricKey: 'directionConsistency', direction: 'above', threshold: 12, impact: 0.6, fixability: 0.6 },
   { tag: 'passing_balance_wobble', skill: 'passing', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.7 },
 
+  // orientation must already be a non-negative magnitude by the time it reaches this rule — receivingBodyOrientation()
+  // itself returns a *signed* angle (sign depends on which way the player is turned), and a plain "below 15" comparison
+  // on a signed value would wrongly flag a mirrored open stance (large negative angle) as closed. Task 15's caller is
+  // responsible for passing Math.abs(...) here — see the comment at that call site.
   { tag: 'first_touch_closed_stance', skill: 'first_touch', metricKey: 'orientation', direction: 'below', threshold: 15, impact: 0.7, fixability: 0.8 },
   { tag: 'first_touch_stiff_cushion', skill: 'first_touch', metricKey: 'cushioning', direction: 'below', threshold: 5, impact: 0.6, fixability: 0.6 },
   { tag: 'first_touch_balance_unstable', skill: 'first_touch', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.7 },
@@ -2073,10 +2077,11 @@ export async function analyzeSession(video: HTMLVideoElement, skill: Skill, foot
   const balanceValues = analyzedReps.map((r) => r.metrics.balance?.value).filter((v): v is number => v !== undefined)
   const balanceScore = balanceValues.length === 0 ? 50 : Math.round(balanceValues.reduce((a, v) => a + toScore(v, 0.01, 0.08), 0) / balanceValues.length)
 
-  // shooting/passing: alignment tracks body lean (lower is better). first_touch: alignment tracks how open the receiving stance is (higher |angle| is better).
+  // shooting/passing: alignment tracks body lean (lower is better). first_touch: alignment tracks how open the receiving
+  // stance is (higher is better) — metrics.orientation is already a non-negative magnitude (abs'd at the source above).
   const alignmentValues =
     skill === 'first_touch'
-      ? analyzedReps.map((r) => (r.metrics.orientation ? Math.abs(r.metrics.orientation.value) : undefined)).filter((v): v is number => v !== undefined)
+      ? analyzedReps.map((r) => r.metrics.orientation?.value).filter((v): v is number => v !== undefined)
       : analyzedReps.map((r) => r.metrics.bodyLean?.value).filter((v): v is number => v !== undefined)
   const alignmentScore =
     alignmentValues.length === 0
@@ -2131,11 +2136,17 @@ function computeSingleRepMetrics(skill: Skill, foot: Foot, frames: PoseFrame[], 
       },
     }
   }
+  // receivingBodyOrientation returns a signed angle (0 = square, sign depends on which way the player
+  // is turned). Task 12's first_touch_closed_stance rule does a plain "below threshold" comparison,
+  // which only works on a non-negative magnitude — a mirrored open stance would otherwise read as a
+  // large *negative* value and get wrongly flagged as closed. Store the absolute value here so every
+  // downstream consumer (fault detection, alignment scoring) sees a consistent non-negative convention.
+  const orientationRaw = M.receivingBodyOrientation(contactFrame)
   return {
     plantFootX,
     followThroughAngle,
     metrics: {
-      orientation: M.receivingBodyOrientation(contactFrame),
+      orientation: { value: Math.abs(orientationRaw.value), confidence: orientationRaw.confidence },
       balance: M.preContactBalance(windowFrames.slice(0, contactIdxInWindow + 1)),
       cushioning: M.cushioningMotion(windowFrames[0], contactFrame, hipIdx, kneeIdx, ankleIdx),
     },
@@ -3167,6 +3178,8 @@ git commit -m "docs: record FootTrack production URL"
 **Critical fix from Task 8's code review — real, not theoretical, caught before it shipped false coaching claims:** `angleFromVertical()` is mathematically direction-agnostic (uses `Math.abs()` on both axes, so it measures magnitude of lean, never which way). The original draft of Task 12/13 had a fault tag `shooting_lean_back` with copy asserting "you're leaning back... shots flying high" — a specific direction this metric structurally cannot detect. A player leaning *forward* would trigger the identical value and get told the opposite of the truth. Traced forward through Tasks 12/13/4 (drill seed, KPI wording) before any of that code existed and fixed at the source: renamed the tag to `shooting_torso_lean` throughout, rewrote the copy to claim only "off vertical / instability," not a direction, and updated the already-seeded "Chest-Over-Ball Finishes" drill's objective to match (its `targets_fault_tags` in the live DB was updated to match — see below). Considered and rejected a signed-lean approach (deriving a reference "forward" direction from the striking foot's swing velocity) as too much unproven cross-task complexity to add this late; direction-agnostic is the honest, shippable choice for MVP, consistent with the product's own "never claim what you can't measure" principle. `landmarkConfidence([])` also had a related latent risk (`Infinity` instead of `0`, which would have silently defeated the Task 12 confidence-floor exclusion) — fixed in the implemented code, not just the plan.
 
 **Serious bug caught and fixed during Task 10's review (the most significant one so far):** the plan's own `ankleLockDeviation` test fixture had a wrong inline comment/coordinates — it claimed to encode "roughly 165 degrees" but the given coordinates actually computed ~104°. The first fix attempt changed the production `LOCKED_REFERENCE_DEG` constant from 165 to 90 to match the broken fixture, which would have inverted the metric's real-world meaning (a genuinely locked/pointed ankle would score as "unstable" and vice versa) once Task 12's `passing_ankle_unstable` fault rule consumed it. Caught via independent geometric re-derivation, cross-checked against Task 12's already-specified fault polarity, and corrected: reverted the constant to 165 (confirmed anatomically correct — locked/plantarflexed reads ~165-180°, neutral/flat reads ~90-110°) and fixed the test fixture instead (now genuinely ~175°, verified with worked arithmetic, not threshold-scraping). Fixed in both the implemented code and this plan document (the fixture coordinates/comment above) so the plan doesn't stay a regression trap for anyone treating it as ground truth later.
+
+**Real integration bug caught during Task 12's review, fixed before Task 15 (its only consumer) was built:** `receivingBodyOrientation()` (Task 10) returns a *signed* angle — sign depends on which way the player is turned, magnitude indicates how open/closed the stance is. The `first_touch_closed_stance` fault rule does a plain `direction: 'below', threshold: 15` comparison, which only behaves correctly against a non-negative magnitude. Left as originally planned, a mirrored open stance (e.g. a large *negative* angle like -45°) would satisfy `-45 < 15` and get wrongly flagged as closed — the opposite of correct. Fixed at the source: Task 15's `computeSingleRepMetrics` now stores `Math.abs(...)` of the raw orientation value for the `orientation` metric key (with a comment explaining why), and the already-redundant `Math.abs()` in the alignment-score calculation was simplified since the value is now abs'd upstream. Documented the contract directly in `FAULT_RULES` too, both in the plan and in the already-committed Task 12 code, so it can't silently regress if this rule is ever touched again.
 
 **Type consistency check:** verified that every cross-file call site (`analyzeSession` → `metrics.ts` functions, `saveSessionResults` → `analyzeSession`'s `SessionAnalysis` shape → the `rep_events`/`feedback_items`/`skill_scores` column names from Task 3's schema, `generatePlan` → `drills`/`plans`/`plan_items` columns) uses matching parameter order, field names, and types. No mismatches found beyond the two fixed inline above.
 
