@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { OnboardingPage } from './OnboardingPage'
 
@@ -23,5 +23,20 @@ describe('OnboardingPage', () => {
     fireEvent.click(screen.getByLabelText(/right foot/i))
     fireEvent.click(screen.getByLabelText(/i confirm i am 16/i))
     expect(screen.getByRole('button', { name: /start training/i })).toBeEnabled()
+  })
+
+  it('submits the profile update with the selected values on save', async () => {
+    render(<OnboardingPage />, { wrapper: MemoryRouter })
+    fireEvent.click(screen.getByLabelText(/right foot/i))
+    fireEvent.click(screen.getByLabelText(/i confirm i am 16/i))
+    fireEvent.click(screen.getByRole('button', { name: /start training/i }))
+
+    await waitFor(() => expect(updateMock).toHaveBeenCalled())
+
+    expect(updateMock).toHaveBeenCalledWith({
+      dominant_foot: 'right',
+      position: null,
+      consent_accepted_at: expect.any(String),
+    })
   })
 })

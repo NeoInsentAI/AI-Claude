@@ -6,6 +6,7 @@ export function OnboardingPage() {
   const [dominantFoot, setDominantFoot] = useState<'left' | 'right' | ''>('')
   const [position, setPosition] = useState('')
   const [consent, setConsent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
 
   const canSubmit = dominantFoot !== '' && consent
@@ -13,12 +14,20 @@ export function OnboardingPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!canSubmit) return
+    setError(null)
     const { data } = await supabase.auth.getUser()
-    if (!data.user) return
-    await supabase
+    if (!data.user) {
+      setError('We could not verify your account. Please sign in again and retry.')
+      return
+    }
+    const { error: updateError } = await supabase
       .from('profiles')
-      .update({ dominant_foot: dominantFoot, position, consent_accepted_at: new Date().toISOString() })
+      .update({ dominant_foot: dominantFoot, position: position || null, consent_accepted_at: new Date().toISOString() })
       .eq('id', data.user.id)
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
     navigate('/home')
   }
 
@@ -44,6 +53,7 @@ export function OnboardingPage() {
         <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
         I confirm I am 16 or older, or have a parent/guardian's permission to use this app
       </label>
+      {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={!canSubmit}>Start training</button>
     </form>
   )
