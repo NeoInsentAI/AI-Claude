@@ -38,6 +38,10 @@ export const FAULT_RULES: FaultRule[] = [
   { tag: 'passing_direction_inconsistent', skill: 'passing', metricKey: 'directionConsistency', direction: 'above', threshold: 12, impact: 0.6, fixability: 0.6 },
   { tag: 'passing_balance_wobble', skill: 'passing', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.7 },
 
+  // orientation must already be a non-negative magnitude by the time it reaches this rule — receivingBodyOrientation()
+  // itself returns a *signed* angle (sign depends on which way the player is turned), and a plain "below 15" comparison
+  // on a signed value would wrongly flag a mirrored open stance (large negative angle) as closed. The caller that
+  // computes this metric is responsible for passing Math.abs(...) here.
   { tag: 'first_touch_closed_stance', skill: 'first_touch', metricKey: 'orientation', direction: 'below', threshold: 15, impact: 0.7, fixability: 0.8 },
   { tag: 'first_touch_stiff_cushion', skill: 'first_touch', metricKey: 'cushioning', direction: 'below', threshold: 5, impact: 0.6, fixability: 0.6 },
   { tag: 'first_touch_balance_unstable', skill: 'first_touch', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.7 },
