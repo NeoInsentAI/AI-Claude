@@ -12,7 +12,12 @@ const VELOCITY_THRESHOLD = 0.15 // normalized units/second — tuned against rea
 const REFRACTORY_MS = 400
 const WINDOW_MS = 500 // how far before/after contact a rep's analysis window extends
 
-/** Segments a continuous clip into individual reps by finding local maxima in the tracked ankle's speed. */
+/**
+ * Segments a continuous clip into individual reps by finding local maxima in the tracked ankle's speed.
+ *
+ * Precondition: `frames` must be sorted ascending by `timestampMs` (real callers always pass a
+ * single chronologically-captured clip).
+ */
 export function segmentReps(frames: PoseFrame[], ankleLandmarkIndex: number): RepWindow[] {
   if (frames.length < 3) return []
 
@@ -52,6 +57,10 @@ export function segmentReps(frames: PoseFrame[], ankleLandmarkIndex: number): Re
   })
 }
 
+// `findFrameAtOrAfter`/`findFrameAtOrBefore`'s "not found" fallbacks (index 0 / frames.length - 1)
+// are currently unreachable from segmentReps: contactTimestampMs is always drawn from `frames`
+// itself and WINDOW_MS can't push the lookup outside the array's actual timestamp range. If either
+// helper is ever reused by a new caller, reconsider whether those fallback directions still fit.
 function findFrameAtOrAfter(frames: PoseFrame[], ms: number): number {
   const idx = frames.findIndex((f) => f.timestampMs >= ms)
   return idx === -1 ? 0 : idx

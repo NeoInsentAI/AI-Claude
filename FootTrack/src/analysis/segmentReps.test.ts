@@ -10,13 +10,24 @@ function stillFrame(t: number, overrides: Partial<Record<number, Landmark>> = {}
   return { timestampMs: t, landmarks }
 }
 
-/** Simulates one ankle swinging out to x=0.8 and back over `frames` samples, spaced `stepMs` apart, centered at `centerMs`. */
+/**
+ * Simulates one ankle swinging out and back over 7 frames spaced `stepMs` apart, centered at `centerMs`.
+ *
+ * The frame-to-frame |dx| magnitudes are deliberately asymmetric — strictly increasing into the
+ * peak (0.04 < 0.08 < 0.14) and strictly decreasing out of it (0.14 > 0.13 > 0.09 > 0.04) — rather
+ * than a symmetric `0.3 - |offset| * 0.1` triangle. A symmetric triangle produces identical
+ * frame-to-frame deltas on both sides of the center, which is a tied velocity plateau under exact
+ * math; it only "worked" before via microscopic IEEE-754 rounding noise nudging one side higher.
+ * This profile has a genuine, by-construction single maximum (verified: the peak beats its
+ * neighbors by ~0.3-1.8 units/s, many orders of magnitude above floating-point noise) at the
+ * transition landing on offset 0, i.e. timestamp === centerMs.
+ */
 function swing(centerMs: number, stepMs: number, ankleIndex: number): PoseFrame[] {
   const offsets = [-3, -2, -1, 0, 1, 2, 3]
-  return offsets.map((o) => {
-    const x = 0.5 + Math.max(0, 0.3 - Math.abs(o) * 0.1) // peaks at o=0
-    return stillFrame(centerMs + o * stepMs, { [ankleIndex]: { x, y: 0.5, z: 0, visibility: 1 } })
-  })
+  const deltas = [0.04, 0.08, 0.14, -0.13, -0.09, -0.04] // |dx| ramps up then down, peak at index 3
+  const xs = [0.5]
+  for (const d of deltas) xs.push(xs[xs.length - 1] + d)
+  return offsets.map((o, i) => stillFrame(centerMs + o * stepMs, { [ankleIndex]: { x: xs[i], y: 0.5, z: 0, visibility: 1 } }))
 }
 
 describe('segmentReps', () => {
