@@ -1450,17 +1450,26 @@ let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
 function getLandmarker(): Promise<PoseLandmarker> {
   if (!landmarkerPromise) {
+    // WASM fileset version pinned to match the installed npm package exactly (not @latest) —
+    // the JS API and its WASM binary are a matched pair; drifting them apart is a silent runtime risk.
     landmarkerPromise = FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-    ).then((files) =>
-      PoseLandmarker.createFromOptions(files, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-      })
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
     )
+      .then((files) =>
+        PoseLandmarker.createFromOptions(files, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+        })
+      )
+      // A failed init (e.g. CDN network blip) must not permanently poison the singleton —
+      // reset so the next caller can retry instead of every future call re-throwing forever.
+      .catch((e) => {
+        landmarkerPromise = null
+        throw e
+      })
   }
   return landmarkerPromise
 }
