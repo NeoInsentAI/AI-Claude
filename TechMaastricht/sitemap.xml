@@ -1,10 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>https://techmaastricht.org/</loc></url>
-  <url><loc>https://techmaastricht.org/about.html</loc></url>
-  <url><loc>https://techmaastricht.org/programs.html</loc></url>
-  <url><loc>https://techmaastricht.org/regional-hub.html</loc></url>
-  <url><loc>https://techmaastricht.org/events.html</loc></url>
-  <url><loc>https://techmaastricht.org/community.html</loc></url>
-  <url><loc>https://techmaastricht.org/contact.html</loc></url>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://techmaastricht.org/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/about.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/about.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/about.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/programs.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/programs.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/programs.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/regional-hub.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/regional-hub.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/regional-hub.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/events.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/events.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/events.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/community.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/community.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/community.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/contact.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/contact.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/contact.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/about.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/about.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/about.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/programs.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/programs.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/programs.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/regional-hub.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/regional-hub.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/regional-hub.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/events.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/events.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/events.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/community.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/community.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/community.html" />
+  </url>
+  <url>
+    <loc>https://techmaastricht.org/en/contact.html</loc>
+    <xhtml:link rel="alternate" hreflang="nl" href="https://techmaastricht.org/contact.html" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://techmaastricht.org/en/contact.html" />
+  </url>
 </urlset>
