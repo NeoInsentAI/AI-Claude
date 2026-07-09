@@ -988,7 +988,7 @@ export function landmarkConfidence(landmarks: Landmark[]): number {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd FootTrack && npm run test -- geometry`
-Expected: PASS (9 tests)
+Expected: PASS (11 tests)
 
 - [ ] **Step 6: Commit**
 
