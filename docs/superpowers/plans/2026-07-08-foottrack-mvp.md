@@ -1271,15 +1271,16 @@ describe('cushioningMotion', () => {
 
 describe('ankleLockDeviation', () => {
   it('is near 0 when the ankle joint is close to the locked reference angle', () => {
-    // knee above ankle, foot-index straight out — roughly a 165-degree open joint angle
+    // knee above ankle, foot-index continuing the shin's line downward — a pointed/plantarflexed
+    // "locked" ankle, roughly 175 degrees (verified: cos = -0.15/0.1505 -> ~175.4deg)
     const f = frame(0, {
-      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.58, 0.92),
+      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.52, 1.15),
     })
     expect(ankleLockDeviation(f, LM.RIGHT_KNEE, LM.RIGHT_ANKLE, LM.RIGHT_FOOT_INDEX).value).toBeLessThan(30)
   })
   it('caps confidence at 0.7 since it is an Estimated signal', () => {
     const f = frame(0, {
-      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.58, 0.92),
+      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.52, 1.15),
     })
     expect(ankleLockDeviation(f, LM.RIGHT_KNEE, LM.RIGHT_ANKLE, LM.RIGHT_FOOT_INDEX).confidence).toBeLessThanOrEqual(0.7)
   })
@@ -1423,7 +1424,7 @@ export function repConsistency(values: number[]): MetricResult {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd FootTrack && npm run test -- metrics`
-Expected: PASS (14 tests)
+Expected: PASS (15 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -3155,6 +3156,8 @@ git commit -m "docs: record FootTrack production URL"
 **Backlog item flagged during Task 7's code review, not fixed (needs its own design decision, not a quick patch):** there's no first-run enforcement routing a new user to `/onboarding` before `/home` — `RequireAuth` only checks session presence, not profile completeness, and the catch-all route sends unknown paths to `/home` rather than `/onboarding`. A user can reach the app with `dominant_foot: null` forever if they never manually visit `/onboarding`. Worth deciding before Tasks 15/16 (which assume a populated `dominant_foot` for foot-focus defaults) whether to: (a) have `RequireAuth` also check `profiles.dominant_foot is null` and redirect to onboarding, or (b) have the Home screen (Task 16) detect it and prompt inline. Not blocking this build, but shouldn't be forgotten.
 
 **Critical fix from Task 8's code review — real, not theoretical, caught before it shipped false coaching claims:** `angleFromVertical()` is mathematically direction-agnostic (uses `Math.abs()` on both axes, so it measures magnitude of lean, never which way). The original draft of Task 12/13 had a fault tag `shooting_lean_back` with copy asserting "you're leaning back... shots flying high" — a specific direction this metric structurally cannot detect. A player leaning *forward* would trigger the identical value and get told the opposite of the truth. Traced forward through Tasks 12/13/4 (drill seed, KPI wording) before any of that code existed and fixed at the source: renamed the tag to `shooting_torso_lean` throughout, rewrote the copy to claim only "off vertical / instability," not a direction, and updated the already-seeded "Chest-Over-Ball Finishes" drill's objective to match (its `targets_fault_tags` in the live DB was updated to match — see below). Considered and rejected a signed-lean approach (deriving a reference "forward" direction from the striking foot's swing velocity) as too much unproven cross-task complexity to add this late; direction-agnostic is the honest, shippable choice for MVP, consistent with the product's own "never claim what you can't measure" principle. `landmarkConfidence([])` also had a related latent risk (`Infinity` instead of `0`, which would have silently defeated the Task 12 confidence-floor exclusion) — fixed in the implemented code, not just the plan.
+
+**Serious bug caught and fixed during Task 10's review (the most significant one so far):** the plan's own `ankleLockDeviation` test fixture had a wrong inline comment/coordinates — it claimed to encode "roughly 165 degrees" but the given coordinates actually computed ~104°. The first fix attempt changed the production `LOCKED_REFERENCE_DEG` constant from 165 to 90 to match the broken fixture, which would have inverted the metric's real-world meaning (a genuinely locked/pointed ankle would score as "unstable" and vice versa) once Task 12's `passing_ankle_unstable` fault rule consumed it. Caught via independent geometric re-derivation, cross-checked against Task 12's already-specified fault polarity, and corrected: reverted the constant to 165 (confirmed anatomically correct — locked/plantarflexed reads ~165-180°, neutral/flat reads ~90-110°) and fixed the test fixture instead (now genuinely ~175°, verified with worked arithmetic, not threshold-scraping). Fixed in both the implemented code and this plan document (the fixture coordinates/comment above) so the plan doesn't stay a regression trap for anyone treating it as ground truth later.
 
 **Type consistency check:** verified that every cross-file call site (`analyzeSession` → `metrics.ts` functions, `saveSessionResults` → `analyzeSession`'s `SessionAnalysis` shape → the `rep_events`/`feedback_items`/`skill_scores` column names from Task 3's schema, `generatePlan` → `drills`/`plans`/`plan_items` columns) uses matching parameter order, field names, and types. No mismatches found beyond the two fixed inline above.
 
