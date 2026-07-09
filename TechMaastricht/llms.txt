@@ -1,0 +1,33 @@
+# TechMaastricht
+
+> TechMaastricht is a community hub growing tech and AI talent in Maastricht, the Netherlands, and connecting it across the Meuse-Rhine Euroregion — Aachen (Germany), Hasselt and Liège (Belgium), and Luxembourg.
+
+TechMaastricht exists for people who want to learn tech or AI skills, join a tech community, find a mentor, or hire tech talent in the South Limburg / Meuse-Rhine border region. The organization runs meetups, mentorship, workforce and AI upskilling training, student and youth outreach, startup support, and cross-border exchange programs linking Maastricht, Aachen, Hasselt, Liège, and Luxembourg City.
+
+TechMaastricht is een communityhub die techtalent en AI-talent in Maastricht laat groeien en verbindt met de grensregio — Aken (Duitsland), Hasselt en Luik (België) en Luxemburg. De site richt zich op mensen die tech of AI willen leren, een community zoeken, een mentor willen vinden, of techtalent willen werven in Maastricht, Zuid-Limburg en de Euregio Maas-Rijn.
+
+The site is available in Dutch (default, at `/`) and English (at `/en/`). Every page has an identical counterpart in the other language.
+
+## Pages (Dutch, main site)
+
+- [Home](https://techmaastricht.org/): Missie van TechMaastricht als regionale techhub die Nederland, Duitsland, België en Luxemburg verbindt.
+- [Over ons](https://techmaastricht.org/about.html): Ontstaansverhaal, missie, visie en team van TechMaastricht.
+- [Programma's](https://techmaastricht.org/programs.html): Zes programma's — meetups, mentorschap, vakopleiding/AI-bijscholing, studenten- en jongerenwerk, startupondersteuning, en grensoverschrijdende uitwisseling.
+- [Regionale Hub](https://techmaastricht.org/regional-hub.html): Waarom Maastricht's positie op het Nederlands-Duits-Belgische drielandenpunt (Euregio Maas-Rijn) er een natuurlijke grensoverschrijdende techhub van maakt, inclusief Aken en Hasselt/Luik.
+- [Evenementen](https://techmaastricht.org/events.html): Terugkerende meetups, hackathons en de jaarlijkse Regional Tech Summit.
+- [Community](https://techmaastricht.org/community.html): Wie er deel van uitmaakt en hoe je meedoet.
+- [Contact](https://techmaastricht.org/contact.html): Contact opnemen, meedoen, mentor worden, of partner worden.
+
+## Pages (English)
+
+- [Home](https://techmaastricht.org/en/): TechMaastricht's mission as a regional tech hub connecting the Netherlands, Germany, Belgium, and Luxembourg.
+- [About](https://techmaastricht.org/en/about.html): TechMaastricht's origin story, mission, vision, and team.
+- [Programs](https://techmaastricht.org/en/programs.html): Six programs — meetups, mentorship, workforce/AI training, student & youth outreach, startup support, and cross-border exchange.
+- [Regional Hub](https://techmaastricht.org/en/regional-hub.html): Why Maastricht's position at the Dutch-German-Belgian tri-border point (Meuse-Rhine Euroregion) makes it a natural cross-border tech hub, including Aachen and Hasselt/Liège.
+- [Events](https://techmaastricht.org/en/events.html): Recurring meetups, hackathons, and the annual Regional Tech Summit.
+- [Community](https://techmaastricht.org/en/community.html): Who's part of TechMaastricht and how to join.
+- [Contact](https://techmaastricht.org/en/contact.html): Ways to get in touch, join the community, mentor, or partner.
+
+## Topics and region / Onderwerpen en regio
+
+Learning tech, learning AI, tech meetups, AI meetups, tech community, tech talent, AI training, workforce training, mentorship, startup support, cross-border tech — Maastricht, South Limburg, Zuid-Limburg, Aachen, Aken, Hasselt, Liège, Luik, Luxembourg, Luxemburg, the Netherlands, Nederland, Germany, Duitsland, Belgium, België, Meuse-Rhine Euroregion, Euregio Maas-Rijn.

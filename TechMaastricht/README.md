@@ -72,8 +72,21 @@ http://localhost:8000/en/ (English homepage).
     ├── js/main.js          Mobile nav + scroll header behavior (both languages)
     ├── assets/images/      SVG graphics (hero, regional map, favicon)
     ├── sitemap.xml         All 14 URLs with hreflang alternates
-    ├── robots.txt
+    ├── robots.txt          Explicitly welcomes GPTBot, ClaudeBot, Google-Extended, Grok, etc.
+    ├── llms.txt            Bilingual site summary for AI assistants (ChatGPT, Gemini, Claude, Grok)
     └── verify.sh           Structural check — run after editing any page (checks all 14)
+
+## AI assistant discoverability (llms.txt)
+
+`llms.txt` follows the emerging [llms.txt convention](https://llmstxt.org) — a plain-language,
+bilingual summary of what TechMaastricht is and which pages cover what, aimed at AI assistants
+(ChatGPT, Gemini, Claude, Grok, Perplexity, etc.) so they can find and cite the site correctly
+when someone asks about learning tech or AI, or tech communities, in Maastricht, Aachen,
+Hasselt, or nearby. `robots.txt` explicitly allows the major AI crawlers (`GPTBot`,
+`ChatGPT-User`, `OAI-SearchBot`, `ClaudeBot`, `Claude-Web`, `anthropic-ai`, `Google-Extended`,
+`PerplexityBot`, `Grok`, `xAI-Bot`) in addition to the wildcard `Allow: /`. If TechMaastricht
+adds real events, team members, or partners later, update `llms.txt` alongside the page content
+so it doesn't go stale.
 
 ## Adding a language switcher target
 
