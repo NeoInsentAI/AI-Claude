@@ -30,23 +30,25 @@ export async function saveSessionResults(
   if (sessionError) throw sessionError
 
   try {
-    if (analysis.reps.length > 0) {
-      const { error: repsError } = await supabase.from('rep_events').insert(
-        analysis.reps.map((r) => ({
-          session_id: session.id,
-          rep_index: r.repIndex,
-          foot: r.foot,
-          t_contact_ms: r.contactTimestampMs,
-          // MetricResult ({value, confidence}, both numbers) is plain JSON-serializable data. The generated
-          // Json type isn't structurally satisfied by a named Record<string, MetricResult> interface type
-          // (index-signature assignability isn't inferred the same way it is for fresh object literals), so
-          // this cast is a typing-only fixup — the actual payload shape is unchanged.
-          metrics: r.metrics as unknown as Json,
-          quality_class: r.qualityClass,
-        }))
-      )
-      if (repsError) throw repsError
+    if (analysis.reps.length === 0) {
+      throw new Error('No reps detected in this clip. Make sure your full body and the ball are in frame, then try recording again.')
     }
+
+    const { error: repsError } = await supabase.from('rep_events').insert(
+      analysis.reps.map((r) => ({
+        session_id: session.id,
+        rep_index: r.repIndex,
+        foot: r.foot,
+        t_contact_ms: r.contactTimestampMs,
+        // MetricResult ({value, confidence}, both numbers) is plain JSON-serializable data. The generated
+        // Json type isn't structurally satisfied by a named Record<string, MetricResult> interface type
+        // (index-signature assignability isn't inferred the same way it is for fresh object literals), so
+        // this cast is a typing-only fixup — the actual payload shape is unchanged.
+        metrics: r.metrics as unknown as Json,
+        quality_class: r.qualityClass,
+      }))
+    )
+    if (repsError) throw repsError
 
     const feedbackRows = await Promise.all(
       analysis.feedback.map(async (f) => ({
@@ -114,7 +116,10 @@ async function updateSkillScores(profileId: string, skill: Skill, analysis: Sess
       .maybeSingle()
 
     const blended = updateEwma(previous?.value ?? null, newValue)
-    await supabase.from('skill_scores').insert({ profile_id: profileId, attribute, skill, value: blended })
+    const { error: scoreError } = await supabase
+      .from('skill_scores')
+      .insert({ profile_id: profileId, attribute, skill, value: blended })
+    if (scoreError) throw scoreError
   }
 
   await updateWeakFootConfidence(profileId)
@@ -144,5 +149,8 @@ async function updateWeakFootConfidence(profileId: string) {
   const sessions = (history ?? []).map((s) => ({ foot: s.foot_focus as Foot, techniqueScore: s.session_score as number }))
 
   const result = weakFootConfidence(profile.dominant_foot as Foot, sessions)
-  await supabase.from('skill_scores').insert({ profile_id: profileId, attribute: 'weak_foot_confidence', skill: null, value: result.value })
+  const { error: weakFootError } = await supabase
+    .from('skill_scores')
+    .insert({ profile_id: profileId, attribute: 'weak_foot_confidence', skill: null, value: result.value })
+  if (weakFootError) throw weakFootError
 }

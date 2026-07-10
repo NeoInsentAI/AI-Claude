@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export function SignUpPage() {
@@ -36,6 +37,7 @@ export function SignUpPage() {
       </label>
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Creating account…' : 'Create account'}</button>
+      <p>Already have an account? <Link to="/sign-in">Sign in</Link></p>
     </form>
   )
 }
