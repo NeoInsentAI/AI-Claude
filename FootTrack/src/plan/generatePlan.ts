@@ -8,6 +8,11 @@ export function chooseFocusAreas(scores: { skill: Skill; technique: number }[]):
   return [...scores].sort((a, b) => a.technique - b.technique).slice(0, 2).map((s) => s.skill)
 }
 
+/** Spreads plan items across the week, capped at day 7 (the plan_items.target_day CHECK constraint's max) regardless of how many items there are. */
+export function targetDayFor(index: number): number {
+  return Math.min(7, (index + 1) * 2)
+}
+
 export async function generateWeeklyPlan(profileId: string): Promise<string> {
   const { data: rows } = await supabase
     .from('skill_scores')
@@ -60,7 +65,7 @@ export async function generateWeeklyPlan(profileId: string): Promise<string> {
 
   if (chosen.length > 0) {
     await supabase.from('plan_items').insert(
-      chosen.map((d, i) => ({ plan_id: plan.id, drill_id: d.id, target_day: (i + 1) * 2 }))
+      chosen.map((d, i) => ({ plan_id: plan.id, drill_id: d.id, target_day: targetDayFor(i) }))
     )
   }
 
