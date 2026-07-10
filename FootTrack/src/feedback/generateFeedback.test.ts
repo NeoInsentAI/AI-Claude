@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { generateFeedback } from './generateFeedback'
+import { generateFeedback, COPY_TEMPLATES, WIN_TEMPLATES } from './generateFeedback'
+import { FAULT_RULES } from './faultTaxonomy'
 import type { AggregatedFault } from './faultTaxonomy'
 
 describe('generateFeedback', () => {
@@ -30,5 +31,13 @@ describe('generateFeedback', () => {
     const items = generateFeedback([])
     expect(items).toHaveLength(1)
     expect(items[0].kind).toBe('win')
+  })
+
+  it('has a copy template and a win template for every fault tag', () => {
+    const tags = FAULT_RULES.map((r) => r.tag)
+    for (const tag of tags) {
+      expect(COPY_TEMPLATES[tag], `missing COPY_TEMPLATES for ${tag}`).toBeDefined()
+      expect(WIN_TEMPLATES[tag], `missing WIN_TEMPLATES for ${tag}`).toBeDefined()
+    }
   })
 })

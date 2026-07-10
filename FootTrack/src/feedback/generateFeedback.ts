@@ -7,27 +7,27 @@ export interface FeedbackItemDraft {
   rank: number
 }
 
-const COPY_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
+export const COPY_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
   shooting_torso_lean: (f) =>
     `Your torso is pulling well off vertical on ${Math.round(f.frequency * 100)}% of your strikes — that instability is costing you accuracy. Focus on staying tall and balanced through contact.`,
   shooting_balance_wobble: (f) =>
-    `Your balance wavers before contact on ${Math.round(f.frequency * 100)}% of reps. A steadier approach will make everything downstream more consistent.`,
+    `Your balance wavers before contact on ${Math.round(f.frequency * 100)}% of reps. A steadier approach will make everything downstream more consistent. Widen your base and settle before you strike.`,
   shooting_followthrough_short: () =>
     `You're stopping your leg almost at the ball — a stab, not a swing. Let your leg carry on toward the target.`,
   shooting_landing_unstable: (f) =>
-    `You're landing unbalanced on ${Math.round(f.frequency * 100)}% of shots. In a game that costs you the next action.`,
+    `You're landing unbalanced on ${Math.round(f.frequency * 100)}% of shots. In a game, that costs you the next action — stick your landing under control before you move on.`,
   shooting_plant_inconsistent: () =>
-    `Your plant-foot placement varies rep to rep — that inconsistency is costing you accuracy more than power ever would.`,
+    `Your plant-foot placement varies rep to rep — that inconsistency is costing you accuracy more than power ever would. Pick a mark and land your plant foot on it every time.`,
   passing_plant_inconsistent: () => `Your plant foot lands in a different spot almost every pass. Lock that in first, before worrying about power.`,
   passing_ankle_unstable: () => `Your ankle looks loose through contact — lock it and point your toes down through the pass.`,
-  passing_direction_inconsistent: () => `Your follow-through direction varies a lot between passes — that's showing up as inconsistent accuracy.`,
+  passing_direction_inconsistent: () => `Your follow-through direction varies a lot between passes — that's showing up as inconsistent accuracy. Pick a target and follow all the way through toward it.`,
   passing_balance_wobble: () => `Your balance wavers before you strike the pass. Settle your base first.`,
   first_touch_closed_stance: () => `You're receiving mostly square to the ball. Try arriving side-on so your first touch can go forward.`,
   first_touch_stiff_cushion: () => `Your first touch looks stiff — let your ankle and knee give a little on contact to control the ball softer.`,
   first_touch_balance_unstable: () => `You're unsteady at the moment you receive the ball. Settle your base before the ball arrives.`,
 }
 
-const WIN_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
+export const WIN_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
   shooting_torso_lean: () => `Your torso stayed upright and balanced on most of your strikes.`,
   shooting_balance_wobble: () => `Your pre-contact balance was steady across the session.`,
   shooting_followthrough_short: () => `Your follow-through carried all the way through the target line.`,
