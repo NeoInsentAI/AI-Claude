@@ -22,47 +22,64 @@ export async function saveSessionResults(
       skill,
       foot_focus: footFocus,
       video_storage_path: videoPath,
-      status: 'complete',
+      status: 'analyzing',
       session_score: analysis.sessionScoreValue,
     })
     .select()
     .single()
   if (sessionError) throw sessionError
 
-  if (analysis.reps.length > 0) {
-    const { error: repsError } = await supabase.from('rep_events').insert(
-      analysis.reps.map((r) => ({
+  try {
+    if (analysis.reps.length > 0) {
+      const { error: repsError } = await supabase.from('rep_events').insert(
+        analysis.reps.map((r) => ({
+          session_id: session.id,
+          rep_index: r.repIndex,
+          foot: r.foot,
+          t_contact_ms: r.contactTimestampMs,
+          // MetricResult ({value, confidence}, both numbers) is plain JSON-serializable data. The generated
+          // Json type isn't structurally satisfied by a named Record<string, MetricResult> interface type
+          // (index-signature assignability isn't inferred the same way it is for fresh object literals), so
+          // this cast is a typing-only fixup — the actual payload shape is unchanged.
+          metrics: r.metrics as unknown as Json,
+          quality_class: r.qualityClass,
+        }))
+      )
+      if (repsError) throw repsError
+    }
+
+    const feedbackRows = await Promise.all(
+      analysis.feedback.map(async (f) => ({
         session_id: session.id,
-        rep_index: r.repIndex,
-        foot: r.foot,
-        t_contact_ms: r.contactTimestampMs,
-        // MetricResult ({value, confidence}, both numbers) is plain JSON-serializable data. The generated
-        // Json type isn't structurally satisfied by a named Record<string, MetricResult> interface type
-        // (index-signature assignability isn't inferred the same way it is for fresh object literals), so
-        // this cast is a typing-only fixup — the actual payload shape is unchanged.
-        metrics: r.metrics as unknown as Json,
-        quality_class: r.qualityClass,
+        kind: f.kind,
+        fault_tag: f.faultTag,
+        copy: f.copy,
+        rank: f.rank,
+        drill_id: await findDrillForFault(f.faultTag),
       }))
     )
-    if (repsError) throw repsError
+    const { error: feedbackError } = await supabase.from('feedback_items').insert(feedbackRows)
+    if (feedbackError) throw feedbackError
+
+    const { error: completeError } = await supabase
+      .from('training_sessions')
+      .update({ status: 'complete' })
+      .eq('id', session.id)
+    if (completeError) throw completeError
+
+    await updateSkillScores(profileId, skill, analysis)
+
+    return session.id
+  } catch (err) {
+    // Best-effort: mark the session as failed so it doesn't sit around looking 'analyzing' forever.
+    // Never let a failure here mask the original error — that's what the caller needs to see.
+    try {
+      await supabase.from('training_sessions').update({ status: 'failed' }).eq('id', session.id)
+    } catch {
+      // ignore — the original error below is what matters
+    }
+    throw err
   }
-
-  const feedbackRows = await Promise.all(
-    analysis.feedback.map(async (f) => ({
-      session_id: session.id,
-      kind: f.kind,
-      fault_tag: f.faultTag,
-      copy: f.copy,
-      rank: f.rank,
-      drill_id: await findDrillForFault(f.faultTag),
-    }))
-  )
-  const { error: feedbackError } = await supabase.from('feedback_items').insert(feedbackRows)
-  if (feedbackError) throw feedbackError
-
-  await updateSkillScores(profileId, skill, analysis)
-
-  return session.id
 }
 
 /** Looks up one drill whose targets_fault_tags includes this fault. Win items have faultTag: null and never get a drill. */

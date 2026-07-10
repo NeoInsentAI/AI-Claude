@@ -5,6 +5,26 @@ import { analyzeSession } from '../analysis/analyzeSession'
 import { saveSessionResults } from '../session/saveSessionResults'
 import { SKILL_LABELS, type Skill, type Foot } from '../analysis/skillConfig'
 
+/** Resolves once the video's metadata has loaded, or rejects if the browser fires an `error` event instead
+ *  (corrupt file, zero-byte upload, unsupported codec) — without this, a bad file leaves the caller awaiting
+ *  a promise that never settles. */
+function loadVideoMetadata(video: HTMLVideoElement): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const onLoadedMetadata = () => {
+      video.removeEventListener('loadedmetadata', onLoadedMetadata)
+      video.removeEventListener('error', onError)
+      resolve()
+    }
+    const onError = () => {
+      video.removeEventListener('loadedmetadata', onLoadedMetadata)
+      video.removeEventListener('error', onError)
+      reject(new Error('Could not load video — the file may be corrupt or in an unsupported format'))
+    }
+    video.addEventListener('loadedmetadata', onLoadedMetadata)
+    video.addEventListener('error', onError)
+  })
+}
+
 export function RecordPage() {
   const [skill, setSkill] = useState<Skill>('shooting')
   const [footFocus, setFootFocus] = useState<Foot>('right')
@@ -23,7 +43,7 @@ export function RecordPage() {
 
       const objectUrl = URL.createObjectURL(file)
       videoRef.current.src = objectUrl
-      await new Promise((resolve) => { videoRef.current!.onloadedmetadata = resolve })
+      await loadVideoMetadata(videoRef.current)
 
       const analysis = await analyzeSession(videoRef.current, skill, footFocus)
       const sessionId = await saveSessionResults(userData.user.id, skill, footFocus, file, analysis)
@@ -33,6 +53,10 @@ export function RecordPage() {
     } catch (err) {
       setStatus('error')
       setErrorMessage(err instanceof Error ? err.message : 'Analysis failed')
+      // Force the user to explicitly re-select/re-confirm the video before retrying, rather than letting a
+      // one-tap retry silently re-run the whole pipeline (re-extract frames, re-upload, insert a second
+      // session, double-apply EWMA blending) against the same stale file.
+      setFile(null)
     }
   }
 
