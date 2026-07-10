@@ -13,6 +13,7 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [deleteError, setDeleteError] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -67,12 +68,24 @@ export function ProfilePage() {
     if (!confirmed) return
 
     setDeleteError(false)
+    setDeleting(true)
 
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser()
       if (userError || !userData.user) {
         setDeleteError(true)
         return
+      }
+
+      const { data: videoFiles, error: listVideosError } = await supabase.storage
+        .from('session-videos')
+        .list(userData.user.id)
+      if (listVideosError) throw listVideosError
+      if (videoFiles && videoFiles.length > 0) {
+        const { error: removeVideosError } = await supabase.storage
+          .from('session-videos')
+          .remove(videoFiles.map((f) => `${userData.user.id}/${f.name}`))
+        if (removeVideosError) throw removeVideosError
       }
 
       // training_sessions cascade-deletes rep_events and feedback_items; plans cascade-deletes plan_items (see 0001_init.sql)
@@ -94,6 +107,8 @@ export function ProfilePage() {
       await handleSignOut()
     } catch {
       setDeleteError(true)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -107,8 +122,12 @@ export function ProfilePage() {
       <p>{profile.email}</p>
       <p>Dominant foot: {profile.dominant_foot ?? '—'}</p>
       <p>Position: {profile.position ?? '—'}</p>
-      <button onClick={handleSignOut}>Sign out</button>
-      <button onClick={handleDeleteMyData}>Delete my data</button>
+      <button onClick={handleSignOut} disabled={deleting}>
+        Sign out
+      </button>
+      <button onClick={handleDeleteMyData} disabled={deleting}>
+        {deleting ? 'Deleting…' : 'Delete my data'}
+      </button>
       {deleteError && (
         <p>Couldn't delete all of your data — some of it may still exist. Please try again or contact support.</p>
       )}
