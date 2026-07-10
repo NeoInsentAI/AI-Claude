@@ -326,9 +326,9 @@ insert into drills (category, title, objective, level, instructions, targets_fau
 ('shooting', 'Plant Target Reps', 'Build consistent plant-foot placement', 1,
  'Place a flat marker where your plant foot should land. 3 sets of 10 strikes at 60% power — the only goal is landing your plant foot on the marker every time. Power comes back only after 8/10 placement accuracy.',
  '{shooting_plant_inconsistent}'),
-('shooting', 'Chest-Over-Ball Finishes', 'Fix backward lean at contact', 1,
+('shooting', 'Chest-Over-Ball Finishes', 'Build a stable, upright torso through contact', 1,
  'Short-range low-drive finishes from 8m, 3 sets of 8 per foot. Cue: chest finishes over the ball, not behind it.',
- '{shooting_lean_back}'),
+ '{shooting_torso_lean}'),
 ('shooting', 'Stick-the-Landing Finishes', 'Build a stable landing after the strike', 1,
  'Every strike must end frozen in a stable athletic stance for a 2-count. Power capped at 70% until 8/10 stable landings.',
  '{shooting_landing_unstable}'),
@@ -988,7 +988,7 @@ export function landmarkConfidence(landmarks: Landmark[]): number {
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd FootTrack && npm run test -- geometry`
-Expected: PASS (9 tests)
+Expected: PASS (11 tests)
 
 - [ ] **Step 6: Commit**
 
@@ -1271,15 +1271,16 @@ describe('cushioningMotion', () => {
 
 describe('ankleLockDeviation', () => {
   it('is near 0 when the ankle joint is close to the locked reference angle', () => {
-    // knee above ankle, foot-index straight out — roughly a 165-degree open joint angle
+    // knee above ankle, foot-index continuing the shin's line downward — a pointed/plantarflexed
+    // "locked" ankle, roughly 175 degrees (verified: cos = -0.15/0.1505 -> ~175.4deg)
     const f = frame(0, {
-      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.58, 0.92),
+      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.52, 1.15),
     })
     expect(ankleLockDeviation(f, LM.RIGHT_KNEE, LM.RIGHT_ANKLE, LM.RIGHT_FOOT_INDEX).value).toBeLessThan(30)
   })
   it('caps confidence at 0.7 since it is an Estimated signal', () => {
     const f = frame(0, {
-      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.58, 0.92),
+      [LM.RIGHT_KNEE]: lm(0.5, 0.3), [LM.RIGHT_ANKLE]: lm(0.5, 0.9), [LM.RIGHT_FOOT_INDEX]: lm(0.52, 1.15),
     })
     expect(ankleLockDeviation(f, LM.RIGHT_KNEE, LM.RIGHT_ANKLE, LM.RIGHT_FOOT_INDEX).confidence).toBeLessThanOrEqual(0.7)
   })
@@ -1423,7 +1424,7 @@ export function repConsistency(values: number[]): MetricResult {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd FootTrack && npm run test -- metrics`
-Expected: PASS (14 tests)
+Expected: PASS (15 tests)
 
 - [ ] **Step 5: Commit**
 
@@ -1449,17 +1450,26 @@ let landmarkerPromise: Promise<PoseLandmarker> | null = null
 
 function getLandmarker(): Promise<PoseLandmarker> {
   if (!landmarkerPromise) {
+    // WASM fileset version pinned to match the installed npm package exactly (not @latest) —
+    // the JS API and its WASM binary are a matched pair; drifting them apart is a silent runtime risk.
     landmarkerPromise = FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-    ).then((files) =>
-      PoseLandmarker.createFromOptions(files, {
-        baseOptions: {
-          modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-          delegate: 'GPU',
-        },
-        runningMode: 'VIDEO',
-      })
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
     )
+      .then((files) =>
+        PoseLandmarker.createFromOptions(files, {
+          baseOptions: {
+            modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
+            delegate: 'GPU',
+          },
+          runningMode: 'VIDEO',
+        })
+      )
+      // A failed init (e.g. CDN network blip) must not permanently poison the singleton —
+      // reset so the next caller can retry instead of every future call re-throwing forever.
+      .catch((e) => {
+        landmarkerPromise = null
+        throw e
+      })
   }
   return landmarkerPromise
 }
@@ -1559,19 +1569,19 @@ import type { MetricResult } from '../analysis/types'
 const m = (value: number, confidence = 1): MetricResult => ({ value, confidence })
 
 describe('detectFaults', () => {
-  it('flags shooting_lean_back when body lean exceeds the threshold', () => {
+  it('flags shooting_torso_lean when body lean exceeds the threshold', () => {
     const faults = detectFaults('shooting', { bodyLean: m(22), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) })
-    expect(faults.map((f) => f.tag)).toContain('shooting_lean_back')
+    expect(faults.map((f) => f.tag)).toContain('shooting_torso_lean')
   })
 
-  it('does not flag shooting_lean_back for an upright torso', () => {
+  it('does not flag shooting_torso_lean for an upright torso', () => {
     const faults = detectFaults('shooting', { bodyLean: m(4), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) })
-    expect(faults.map((f) => f.tag)).not.toContain('shooting_lean_back')
+    expect(faults.map((f) => f.tag)).not.toContain('shooting_torso_lean')
   })
 
   it('ignores a metric below the confidence floor', () => {
     const faults = detectFaults('shooting', { bodyLean: m(22, 0.3), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) })
-    expect(faults.map((f) => f.tag)).not.toContain('shooting_lean_back')
+    expect(faults.map((f) => f.tag)).not.toContain('shooting_torso_lean')
   })
 
   it('flags first_touch_closed_stance for a near-zero receiving angle', () => {
@@ -1588,7 +1598,7 @@ describe('aggregateFaults', () => {
       detectFaults('shooting', { bodyLean: m(3), balance: m(0.01), followThrough: m(0.2), landing: m(0.01), plantConsistency: m(0.02) }),
     ]
     const ranked = aggregateFaults(perRep)
-    expect(ranked[0].tag).toBe('shooting_lean_back')
+    expect(ranked[0].tag).toBe('shooting_torso_lean')
     expect(ranked[0].frequency).toBeCloseTo(2 / 3)
   })
 
@@ -1636,7 +1646,7 @@ export interface AggregatedFault {
 }
 
 export const FAULT_RULES: FaultRule[] = [
-  { tag: 'shooting_lean_back', skill: 'shooting', metricKey: 'bodyLean', direction: 'above', threshold: 15, impact: 0.9, fixability: 0.8 },
+  { tag: 'shooting_torso_lean', skill: 'shooting', metricKey: 'bodyLean', direction: 'above', threshold: 15, impact: 0.9, fixability: 0.8 },
   { tag: 'shooting_balance_wobble', skill: 'shooting', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.7, fixability: 0.7 },
   { tag: 'shooting_followthrough_short', skill: 'shooting', metricKey: 'followThrough', direction: 'below', threshold: 0.08, impact: 0.6, fixability: 0.7 },
   { tag: 'shooting_landing_unstable', skill: 'shooting', metricKey: 'landing', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.6 },
@@ -1648,6 +1658,10 @@ export const FAULT_RULES: FaultRule[] = [
   { tag: 'passing_direction_inconsistent', skill: 'passing', metricKey: 'directionConsistency', direction: 'above', threshold: 12, impact: 0.6, fixability: 0.6 },
   { tag: 'passing_balance_wobble', skill: 'passing', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.7 },
 
+  // orientation must already be a non-negative magnitude by the time it reaches this rule — receivingBodyOrientation()
+  // itself returns a *signed* angle (sign depends on which way the player is turned), and a plain "below 15" comparison
+  // on a signed value would wrongly flag a mirrored open stance (large negative angle) as closed. Task 15's caller is
+  // responsible for passing Math.abs(...) here — see the comment at that call site.
   { tag: 'first_touch_closed_stance', skill: 'first_touch', metricKey: 'orientation', direction: 'below', threshold: 15, impact: 0.7, fixability: 0.8 },
   { tag: 'first_touch_stiff_cushion', skill: 'first_touch', metricKey: 'cushioning', direction: 'below', threshold: 5, impact: 0.6, fixability: 0.6 },
   { tag: 'first_touch_balance_unstable', skill: 'first_touch', metricKey: 'balance', direction: 'above', threshold: 0.04, impact: 0.6, fixability: 0.7 },
@@ -1727,18 +1741,18 @@ import type { AggregatedFault } from './faultTaxonomy'
 describe('generateFeedback', () => {
   it('puts the highest-priority fault first as the priority fix', () => {
     const faults: AggregatedFault[] = [
-      { tag: 'shooting_lean_back', frequency: 0.7, avgSeverity: 0.5, priority: 0.5 },
+      { tag: 'shooting_torso_lean', frequency: 0.7, avgSeverity: 0.5, priority: 0.5 },
       { tag: 'shooting_balance_wobble', frequency: 0.3, avgSeverity: 0.2, priority: 0.1 },
     ]
     const items = generateFeedback(faults)
     expect(items[0].kind).toBe('priority_fix')
-    expect(items[0].faultTag).toBe('shooting_lean_back')
+    expect(items[0].faultTag).toBe('shooting_torso_lean')
     expect(items[0].copy.length).toBeGreaterThan(0)
   })
 
   it('caps corrections at 2 items beyond the priority fix', () => {
     const faults: AggregatedFault[] = [
-      { tag: 'shooting_lean_back', frequency: 0.9, avgSeverity: 0.5, priority: 0.9 },
+      { tag: 'shooting_torso_lean', frequency: 0.9, avgSeverity: 0.5, priority: 0.9 },
       { tag: 'shooting_balance_wobble', frequency: 0.6, avgSeverity: 0.4, priority: 0.6 },
       { tag: 'shooting_landing_unstable', frequency: 0.5, avgSeverity: 0.3, priority: 0.4 },
       { tag: 'shooting_plant_inconsistent', frequency: 0.4, avgSeverity: 0.2, priority: 0.2 },
@@ -1775,8 +1789,8 @@ export interface FeedbackItemDraft {
 }
 
 const COPY_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
-  shooting_lean_back: (f) =>
-    `You're leaning back on ${Math.round(f.frequency * 100)}% of your strikes — that's why shots are flying high. Picture your chest finishing over the ball.`,
+  shooting_torso_lean: (f) =>
+    `Your torso is pulling well off vertical on ${Math.round(f.frequency * 100)}% of your strikes — that instability is costing you accuracy. Focus on staying tall and balanced through contact.`,
   shooting_balance_wobble: (f) =>
     `Your balance wavers before contact on ${Math.round(f.frequency * 100)}% of reps. A steadier approach will make everything downstream more consistent.`,
   shooting_followthrough_short: () =>
@@ -1795,7 +1809,7 @@ const COPY_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
 }
 
 const WIN_TEMPLATES: Record<string, (f: AggregatedFault) => string> = {
-  shooting_lean_back: () => `Your torso stayed upright and balanced on most of your strikes.`,
+  shooting_torso_lean: () => `Your torso stayed upright and balanced on most of your strikes.`,
   shooting_balance_wobble: () => `Your pre-contact balance was steady across the session.`,
   shooting_followthrough_short: () => `Your follow-through carried all the way through the target line.`,
   shooting_landing_unstable: () => `You stuck your landing cleanly on most shots.`,
@@ -2063,10 +2077,11 @@ export async function analyzeSession(video: HTMLVideoElement, skill: Skill, foot
   const balanceValues = analyzedReps.map((r) => r.metrics.balance?.value).filter((v): v is number => v !== undefined)
   const balanceScore = balanceValues.length === 0 ? 50 : Math.round(balanceValues.reduce((a, v) => a + toScore(v, 0.01, 0.08), 0) / balanceValues.length)
 
-  // shooting/passing: alignment tracks body lean (lower is better). first_touch: alignment tracks how open the receiving stance is (higher |angle| is better).
+  // shooting/passing: alignment tracks body lean (lower is better). first_touch: alignment tracks how open the receiving
+  // stance is (higher is better) — metrics.orientation is already a non-negative magnitude (abs'd at the source above).
   const alignmentValues =
     skill === 'first_touch'
-      ? analyzedReps.map((r) => (r.metrics.orientation ? Math.abs(r.metrics.orientation.value) : undefined)).filter((v): v is number => v !== undefined)
+      ? analyzedReps.map((r) => r.metrics.orientation?.value).filter((v): v is number => v !== undefined)
       : analyzedReps.map((r) => r.metrics.bodyLean?.value).filter((v): v is number => v !== undefined)
   const alignmentScore =
     alignmentValues.length === 0
@@ -2121,11 +2136,17 @@ function computeSingleRepMetrics(skill: Skill, foot: Foot, frames: PoseFrame[], 
       },
     }
   }
+  // receivingBodyOrientation returns a signed angle (0 = square, sign depends on which way the player
+  // is turned). Task 12's first_touch_closed_stance rule does a plain "below threshold" comparison,
+  // which only works on a non-negative magnitude — a mirrored open stance would otherwise read as a
+  // large *negative* value and get wrongly flagged as closed. Store the absolute value here so every
+  // downstream consumer (fault detection, alignment scoring) sees a consistent non-negative convention.
+  const orientationRaw = M.receivingBodyOrientation(contactFrame)
   return {
     plantFootX,
     followThroughAngle,
     metrics: {
-      orientation: M.receivingBodyOrientation(contactFrame),
+      orientation: { value: Math.abs(orientationRaw.value), confidence: orientationRaw.confidence },
       balance: M.preContactBalance(windowFrames.slice(0, contactIdxInWindow + 1)),
       cushioning: M.cushioningMotion(windowFrames[0], contactFrame, hipIdx, kneeIdx, ankleIdx),
     },
@@ -2186,20 +2207,34 @@ export async function saveSessionResults(
     if (repsError) throw repsError
   }
 
-  const { error: feedbackError } = await supabase.from('feedback_items').insert(
-    analysis.feedback.map((f) => ({
+  const feedbackRows = await Promise.all(
+    analysis.feedback.map(async (f) => ({
       session_id: session.id,
       kind: f.kind,
       fault_tag: f.faultTag,
       copy: f.copy,
       rank: f.rank,
+      drill_id: await findDrillForFault(f.faultTag),
     }))
   )
+  const { error: feedbackError } = await supabase.from('feedback_items').insert(feedbackRows)
   if (feedbackError) throw feedbackError
 
   await updateSkillScores(profileId, skill, footFocus, analysis)
 
   return session.id
+}
+
+/** Looks up one drill whose targets_fault_tags includes this fault. Win items have faultTag: null and never get a drill. */
+async function findDrillForFault(faultTag: string | null): Promise<string | null> {
+  if (!faultTag) return null
+  const { data } = await supabase
+    .from('drills')
+    .select('id')
+    .contains('targets_fault_tags', [faultTag])
+    .limit(1)
+    .maybeSingle()
+  return data?.id ?? null
 }
 
 async function updateSkillScores(profileId: string, skill: Skill, footFocus: Foot, analysis: SessionAnalysis) {
@@ -2342,7 +2377,7 @@ with check (bucket_id = 'session-videos' and (storage.foldername(name))[1] = aut
 Run: `cd FootTrack && npm run build`
 Expected: succeeds.
 
-- [ ] **Step 7: Manual QA** — record a real ~15-second clip of yourself doing 5-6 slow instep-drive strikes against a wall, side-on to the camera. Run it through the Record screen. Confirm: reps are detected (not 0, not wildly over-counted), a session appears in Supabase (`select * from training_sessions order by created_at desc limit 1;` via `execute_sql`), and no console errors. If rep detection is badly off, adjust `VELOCITY_THRESHOLD` in `segmentReps.ts` (Task 9) before moving on — this is the single most failure-prone constant in the whole pipeline, exactly as flagged in the design doc's risks section.
+- [ ] **Step 7: Manual QA** — record a real ~15-second clip of yourself doing 5-6 slow instep-drive strikes against a wall, side-on to the camera. Run it through the Record screen. Confirm: reps are detected (not 0, not wildly over-counted), a session appears in Supabase (`select * from training_sessions order by created_at desc limit 1;` via `execute_sql`), and no console errors. If rep detection is badly off, adjust `VELOCITY_THRESHOLD` in `segmentReps.ts` (Task 9) before moving on — this is the single most failure-prone constant in the whole pipeline, exactly as flagged in the design doc's risks section. Also specifically watch for **phantom reps**: `segmentReps()` (Task 9) never checks landmark `visibility` before computing velocity, so a low-confidence frame (occlusion, motion blur, momentary tracking loss) can produce a spurious position jump that reads as a fake rep. If this shows up on real footage, the fix is to skip frames below a visibility floor before computing velocity in `segmentReps.ts`, not just tune the threshold constant.
 
 - [ ] **Step 8: Commit**
 
@@ -2427,7 +2462,7 @@ import { FeedbackPage } from './FeedbackPage'
 vi.mock('../lib/supabase', () => {
   const session = { id: 's1', skill: 'shooting', session_score: 74, created_at: '2026-07-08T00:00:00Z' }
   const feedback = [
-    { id: 'f1', kind: 'priority_fix', fault_tag: 'shooting_lean_back', copy: 'Lean forward more.', rank: 0 },
+    { id: 'f1', kind: 'priority_fix', fault_tag: 'shooting_torso_lean', copy: 'Lean forward more.', rank: 0 },
     { id: 'f2', kind: 'win', fault_tag: null, copy: 'Great follow-through.', rank: 0 },
   ]
   return {
@@ -2483,6 +2518,7 @@ interface FeedbackRow {
   fault_tag: string | null
   copy: string
   rank: number
+  drills: { title: string; objective: string; instructions: string } | null
 }
 
 export function FeedbackPage() {
@@ -2494,8 +2530,8 @@ export function FeedbackPage() {
     if (!sessionId) return
     supabase.from('training_sessions').select('id, skill, session_score, created_at').eq('id', sessionId).single()
       .then(({ data }) => setSession(data))
-    supabase.from('feedback_items').select('id, kind, fault_tag, copy, rank').eq('session_id', sessionId).order('rank')
-      .then(({ data }) => setFeedback(data ?? []))
+    supabase.from('feedback_items').select('id, kind, fault_tag, copy, rank, drills(title, objective, instructions)').eq('session_id', sessionId).order('rank')
+      .then(({ data }) => setFeedback((data as unknown as FeedbackRow[]) ?? []))
   }, [sessionId])
 
   if (!session) return <p>Loading feedback…</p>
@@ -2513,6 +2549,12 @@ export function FeedbackPage() {
         <section aria-label="Priority fix">
           <h2>Fix this first</h2>
           <p>{priorityFix.copy}</p>
+          {priorityFix.drills && (
+            <div>
+              <strong>Fix it: {priorityFix.drills.title}</strong>
+              <p>{priorityFix.drills.instructions}</p>
+            </div>
+          )}
         </section>
       )}
 
@@ -2526,7 +2568,14 @@ export function FeedbackPage() {
       {corrections.length > 0 && (
         <section aria-label="More corrections">
           <h2>More corrections ({corrections.length})</h2>
-          <ul>{corrections.map((c) => <li key={c.id}>{c.copy}</li>)}</ul>
+          <ul>
+            {corrections.map((c) => (
+              <li key={c.id}>
+                {c.copy}
+                {c.drills && <> — <em>{c.drills.title}</em></>}
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </div>
@@ -2791,6 +2840,23 @@ export async function generateWeeklyPlan(profileId: string): Promise<string> {
 
   const { data: drills } = await supabase.from('drills').select('id, category').in('category', focusAreas)
   const chosen = (drills ?? []).slice(0, 3)
+
+  // Weak-foot drills live in their own category and are never one of focusAreas (which is always shooting/passing/first_touch),
+  // so without this they'd never be reachable — cross-checked against the account-wide weak_foot_confidence score instead.
+  const { data: weakFootScore } = await supabase
+    .from('skill_scores')
+    .select('value')
+    .eq('profile_id', profileId)
+    .eq('attribute', 'weak_foot_confidence')
+    .order('computed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (weakFootScore && weakFootScore.value < 65) {
+    const { data: weakFootDrills } = await supabase.from('drills').select('id').eq('category', 'weak_foot').limit(1)
+    if (weakFootDrills && weakFootDrills.length > 0) chosen.push({ id: weakFootDrills[0].id, category: 'weak_foot' })
+  }
+
   if (chosen.length > 0) {
     await supabase.from('plan_items').insert(
       chosen.map((d, i) => ({ plan_id: plan.id, drill_id: d.id, target_day: (i + 1) * 2 }))
@@ -3100,6 +3166,20 @@ git commit -m "docs: record FootTrack production URL"
 - `TARGET_REPS` (Task 15) is a flat constant per skill rather than plan-driven, and passing's declared-target-direction concept from the original StrikeLab spec was dropped in favor of direction *consistency* — both are deliberate MVP scope cuts.
 - Task 15's Record screen uses a native `<input type="file" accept="video/*" capture="environment">` rather than a custom in-app guided-capture UI (live framing silhouette, countdown, rep-tick audio) described in the design doc's IA section. On mobile this still opens the OS camera directly, so recording works — it just isn't a bespoke guided experience. Building that custom camera UI is a reasonable Phase 2 follow-up, not included here to keep this plan's scope achievable.
 - `sampleIntervalMs = 33` in `extractPoseFrames` (Task 11) processes video roughly frame-by-frame; on a long clip or a slow phone this could be slow, since each sample does a `video.currentTime` seek-and-wait round trip. If Task 15's manual QA pass shows this is too slow in practice, drop to `sampleIntervalMs = 66` (≈15fps) first, per the design doc's own risk note (§12), before considering anything more drastic.
+
+**Follow-up flagged during Task 2 code review (not a blocker, tracked for a later task):** `supabase.ts` throws at module-load time if env vars are missing — correct for local dev (Vite's overlay catches it), but in a deployed build this fails silently in every user's browser as a blank screen (no React ErrorBoundary catches a top-level module-eval throw), and `vite-plugin-pwa`'s service worker can cache that broken bundle. Worth adding, in a later task once the app shell exists: build-time env validation (so a misconfigured deploy fails at build/CI instead of at runtime) and a top-level ErrorBoundary with a friendly fallback.
+
+**Fixed after Task 4's code review surfaced a real structural gap (not a Task 4 defect — Task 4's seed data was correct; the gap was in how later tasks were specced to consume it):** `targets_fault_tags` had no reader anywhere in the original draft of Tasks 13/15 — `feedback_items` was inserted without ever setting `drill_id`, so the "Fix It" drill prescription (design doc §7) was never actually wired up. Fixed: Task 15's `saveSessionResults` now looks up a matching drill per fault tag (`findDrillForFault`, using Postgres `contains` on `targets_fault_tags`) and sets `drill_id` on each feedback item; Task 16's Feedback screen now joins and displays the drill. Separately, `weak_foot` category drills were unreachable by both the fault-tag route (no fault rule ever produces `weak_foot_gap`) and the weekly-plan route (`generateWeeklyPlan`'s category filter is always shooting/passing/first_touch) — fixed by having Task 18's plan generator also check the account's `weak_foot_confidence` score and append a weak-foot drill when it's below 65. `balance` category drills didn't need an equivalent fix — they're already reachable via the fault-tag route (`shooting_balance_wobble` etc. are real `FAULT_RULES` tags).
+
+**Fixed after Task 6's code review:** the plan's own `AppShell` reference code rendered `<NavBar />` unconditionally, visible on `/sign-in`/`/sign-up` before any session existed. Fixed in the implementation (not re-edited above, since Task 6 is done) — `AppShell` now calls `useAuth()` and renders `{session && <NavBar />}`. Anyone touching `AppShell` in a later task should preserve that conditional.
+
+**Backlog item flagged during Task 7's code review, not fixed (needs its own design decision, not a quick patch):** there's no first-run enforcement routing a new user to `/onboarding` before `/home` — `RequireAuth` only checks session presence, not profile completeness, and the catch-all route sends unknown paths to `/home` rather than `/onboarding`. A user can reach the app with `dominant_foot: null` forever if they never manually visit `/onboarding`. Worth deciding before Tasks 15/16 (which assume a populated `dominant_foot` for foot-focus defaults) whether to: (a) have `RequireAuth` also check `profiles.dominant_foot is null` and redirect to onboarding, or (b) have the Home screen (Task 16) detect it and prompt inline. Not blocking this build, but shouldn't be forgotten.
+
+**Critical fix from Task 8's code review — real, not theoretical, caught before it shipped false coaching claims:** `angleFromVertical()` is mathematically direction-agnostic (uses `Math.abs()` on both axes, so it measures magnitude of lean, never which way). The original draft of Task 12/13 had a fault tag `shooting_lean_back` with copy asserting "you're leaning back... shots flying high" — a specific direction this metric structurally cannot detect. A player leaning *forward* would trigger the identical value and get told the opposite of the truth. Traced forward through Tasks 12/13/4 (drill seed, KPI wording) before any of that code existed and fixed at the source: renamed the tag to `shooting_torso_lean` throughout, rewrote the copy to claim only "off vertical / instability," not a direction, and updated the already-seeded "Chest-Over-Ball Finishes" drill's objective to match (its `targets_fault_tags` in the live DB was updated to match — see below). Considered and rejected a signed-lean approach (deriving a reference "forward" direction from the striking foot's swing velocity) as too much unproven cross-task complexity to add this late; direction-agnostic is the honest, shippable choice for MVP, consistent with the product's own "never claim what you can't measure" principle. `landmarkConfidence([])` also had a related latent risk (`Infinity` instead of `0`, which would have silently defeated the Task 12 confidence-floor exclusion) — fixed in the implemented code, not just the plan.
+
+**Serious bug caught and fixed during Task 10's review (the most significant one so far):** the plan's own `ankleLockDeviation` test fixture had a wrong inline comment/coordinates — it claimed to encode "roughly 165 degrees" but the given coordinates actually computed ~104°. The first fix attempt changed the production `LOCKED_REFERENCE_DEG` constant from 165 to 90 to match the broken fixture, which would have inverted the metric's real-world meaning (a genuinely locked/pointed ankle would score as "unstable" and vice versa) once Task 12's `passing_ankle_unstable` fault rule consumed it. Caught via independent geometric re-derivation, cross-checked against Task 12's already-specified fault polarity, and corrected: reverted the constant to 165 (confirmed anatomically correct — locked/plantarflexed reads ~165-180°, neutral/flat reads ~90-110°) and fixed the test fixture instead (now genuinely ~175°, verified with worked arithmetic, not threshold-scraping). Fixed in both the implemented code and this plan document (the fixture coordinates/comment above) so the plan doesn't stay a regression trap for anyone treating it as ground truth later.
+
+**Real integration bug caught during Task 12's review, fixed before Task 15 (its only consumer) was built:** `receivingBodyOrientation()` (Task 10) returns a *signed* angle — sign depends on which way the player is turned, magnitude indicates how open/closed the stance is. The `first_touch_closed_stance` fault rule does a plain `direction: 'below', threshold: 15` comparison, which only behaves correctly against a non-negative magnitude. Left as originally planned, a mirrored open stance (e.g. a large *negative* angle like -45°) would satisfy `-45 < 15` and get wrongly flagged as closed — the opposite of correct. Fixed at the source: Task 15's `computeSingleRepMetrics` now stores `Math.abs(...)` of the raw orientation value for the `orientation` metric key (with a comment explaining why), and the already-redundant `Math.abs()` in the alignment-score calculation was simplified since the value is now abs'd upstream. Documented the contract directly in `FAULT_RULES` too, both in the plan and in the already-committed Task 12 code, so it can't silently regress if this rule is ever touched again.
 
 **Type consistency check:** verified that every cross-file call site (`analyzeSession` → `metrics.ts` functions, `saveSessionResults` → `analyzeSession`'s `SessionAnalysis` shape → the `rep_events`/`feedback_items`/`skill_scores` column names from Task 3's schema, `generatePlan` → `drills`/`plans`/`plan_items` columns) uses matching parameter order, field names, and types. No mismatches found beyond the two fixed inline above.
 
