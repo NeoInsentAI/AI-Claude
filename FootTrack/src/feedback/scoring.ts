@@ -26,6 +26,11 @@ export function weakFootConfidence(
 
   const weakAvg = weakReps.reduce((a, s) => a + s.techniqueScore, 0) / weakReps.length
   const strongAvg = strongReps.reduce((a, s) => a + s.techniqueScore, 0) / strongReps.length
+  // strongAvg <= 0 means the dominant foot's own technique scores are all zero — analysis-failure
+  // territory, not real data. Deliberately returns 0 here even when weakAvg > 0 (which the raw
+  // ratio would otherwise cap at a "perfect" 1): a broken/degenerate denominator should never
+  // produce a confident-looking weak-foot score, since that would be a worse, more misleading
+  // failure mode than an honest 0.
   const techniqueRatio = strongAvg <= 0 ? 0 : Math.min(1, weakAvg / strongAvg)
 
   const usageShare = weakReps.length / (weakReps.length + strongReps.length)
