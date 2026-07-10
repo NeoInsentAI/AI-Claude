@@ -64,9 +64,14 @@ export async function generateWeeklyPlan(profileId: string): Promise<string> {
   }
 
   if (chosen.length > 0) {
-    await supabase.from('plan_items').insert(
+    const { error: itemsError } = await supabase.from('plan_items').insert(
       chosen.map((d, i) => ({ plan_id: plan.id, drill_id: d.id, target_day: targetDayFor(i) }))
     )
+    // The target_day=8 CHECK-constraint failure that motivated this task's fix commit was exactly
+    // this class of bug: an unchecked insert here silently left a `plans` row with zero items and
+    // no error anywhere. Don't let a *different* cause of the same insert failing regress to the
+    // same silent symptom.
+    if (itemsError) throw itemsError
   }
 
   return plan.id
