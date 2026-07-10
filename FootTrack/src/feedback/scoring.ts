@@ -30,8 +30,12 @@ export function weakFootConfidence(
   // territory, not real data. Deliberately returns 0 here even when weakAvg > 0 (which the raw
   // ratio would otherwise cap at a "perfect" 1): a broken/degenerate denominator should never
   // produce a confident-looking weak-foot score, since that would be a worse, more misleading
-  // failure mode than an honest 0.
-  const techniqueRatio = strongAvg <= 0 ? 0 : Math.min(1, weakAvg / strongAvg)
+  // failure mode than an honest 0. For the same reason, confidence is dropped to 0.3 here (matching
+  // the strongReps.length === 0 "no usable baseline" branch above) instead of the normal
+  // usage-based calculation, since a broken baseline can't support a confident measurement either.
+  if (strongAvg <= 0) return { value: 0, confidence: 0.3 }
+
+  const techniqueRatio = Math.min(1, weakAvg / strongAvg)
 
   const usageShare = weakReps.length / (weakReps.length + strongReps.length)
   const value = 100 * techniqueRatio * (0.5 + 0.5 * usageShare)

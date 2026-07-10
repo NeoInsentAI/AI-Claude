@@ -42,4 +42,26 @@ describe('weakFootConfidence', () => {
     ])
     expect(highUsageCloseGap.value).toBeGreaterThan(lowUsageBigGap.value)
   })
+
+  it('scores 0, not a misleading 1.0, when strong-foot technique is all zero but weak-foot technique is positive', () => {
+    const result = weakFootConfidence('right', [
+      { foot: 'right', techniqueScore: 0 },
+      { foot: 'right', techniqueScore: 0 },
+      { foot: 'left', techniqueScore: 70 },
+      { foot: 'left', techniqueScore: 65 },
+    ])
+    expect(result.value).toBe(0)
+    expect(result.confidence).toBe(0.3)
+  })
+
+  it('scores 0, not NaN, when both strong-foot and weak-foot technique are all zero', () => {
+    const result = weakFootConfidence('right', [
+      { foot: 'right', techniqueScore: 0 },
+      { foot: 'right', techniqueScore: 0 },
+      { foot: 'left', techniqueScore: 0 },
+      { foot: 'left', techniqueScore: 0 },
+    ])
+    expect(result.value).toBe(0)
+    expect(result.confidence).toBe(0.3)
+  })
 })
