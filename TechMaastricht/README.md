@@ -22,16 +22,75 @@ http://localhost:8000/en/ (English homepage).
    `en/contact.html`) and in every footer newsletter form (present on all 14 pages) with
    your real Formspree form ID. That's 16 occurrences total (1 per contact form × 2
    languages, 7 in the footer newsletter form × 2 languages).
-2. **Social links**: replace the placeholder LinkedIn/Instagram/X URLs (in every page's
+2. **Speaker / Event / Team forms (Google Forms)**: see "Setting up the Google Forms"
+   below — 3 placeholder embed URLs need to be replaced across `contact.html` and
+   `en/contact.html`.
+3. **Social links**: replace the placeholder LinkedIn/Instagram/X URLs (in every page's
    footer and on both `contact.html` files) with the real profile URLs once they exist.
-3. **Contact email**: replace `hello@techmaastricht.org` with the real inbox once set up.
-4. **Social share image**: `og:image` currently points to an SVG (`hub-graphic.svg` /
+4. **Contact email**: replace `hello@techmaastricht.org` with the real inbox once set up.
+5. **Social share image**: `og:image` currently points to an SVG (`hub-graphic.svg` /
    `regional-map.svg`). Most social platforms (Twitter/X, LinkedIn, Facebook, Slack)
    don't render SVG previews — export a 1200×630 PNG version of the hub graphic and
    update the `og:image` tag on all 14 pages before relying on social link previews.
-5. **Content**: swap placeholder team bios, event dates, and partner logos for real ones
+6. **Content**: swap placeholder team bios, event dates, and partner logos for real ones
    as they're finalized — search for "placeholder" across the codebase to find them all.
    Keep the Dutch and English versions in sync when you do.
+
+## Setting up the Google Forms (Speaker / Event / Team)
+
+The Contact page (`contact.html` and `en/contact.html`) has 4 tabs: **General** (existing
+Formspree form, unchanged), and three new tabs — **Speaker**, **Event**, **Team** — each
+embedding a Google Form via `<iframe>`. You need to create these 3 forms yourself in your
+Google account (no integration here can do this for you), then swap in the real embed URLs.
+
+**Recommended: one set of 3 forms, with bilingual field labels** (e.g. "Naam / Name"), so
+the same embed URL works on both the Dutch and English contact pages — avoids maintaining
+6 separate forms. If you'd rather have fully separate NL/EN forms, create 6 and use a
+different embed URL per language page.
+
+### 1. Speaker application form
+
+Suggested fields:
+- Naam / Name (short answer, required)
+- E-mail / Email (short answer, required)
+- Onderwerp van je talk / Talk topic (short answer, required)
+- LinkedIn of website (optioneel) / LinkedIn or website (optional) (short answer)
+- Vertel ons meer / Tell us more (paragraph, required)
+
+### 2. Event participation form
+
+Suggested fields:
+- Naam / Name (short answer, required)
+- E-mail / Email (short answer, required)
+- Aan welk evenement wil je deelnemen? / Which event do you want to join? (multiple
+  choice: Maandelijkse Meetup / Monthly Meetup, Cross-Border Hackathon, Regional Tech
+  Summit, Nog niet zeker / Not sure yet)
+- Bericht (optioneel) / Message (optional) (paragraph)
+
+### 3. Team application form
+
+Suggested fields:
+- Naam / Name (short answer, required)
+- E-mail / Email (short answer, required)
+- Welke rol spreekt je aan? / Which role interests you? (short answer or multiple choice:
+  Community Lead, Partnerships Lead, Vrijwilliger / Volunteer, Anders / Other)
+- LinkedIn of portfolio (optioneel) / LinkedIn or portfolio (optional) (short answer)
+- Waarom wil je meedoen? / Why do you want to join? (paragraph, required)
+
+### Getting the embed URL and wiring it in
+
+1. In Google Forms, open the form → **Send** (top right) → the `<>` (embed) tab → copy the
+   URL inside the `src="..."` of the iframe code shown (looks like
+   `https://docs.google.com/forms/d/e/FORM_ID/viewform?embedded=true`).
+2. In `contact.html` (and `en/contact.html`), find and replace:
+   - `YOUR_SPEAKER_GOOGLE_FORM_EMBED_URL` → your Speaker form's embed URL
+   - `YOUR_EVENT_GOOGLE_FORM_EMBED_URL` → your Event form's embed URL
+   - `YOUR_TEAM_GOOGLE_FORM_EMBED_URL` → your Team form's embed URL
+3. The embedded iframe defaults to `min-height: 900px` (see `.gform-embed iframe` in
+   `css/style.css`) — adjust that value if a form is noticeably shorter or taller once
+   real fields are in place, so there isn't excess empty space or an awkward scrollbar.
+4. Responses land in each form's own **Responses** tab in Google Forms (and can be linked
+   to a Google Sheet from there — click the green Sheets icon in Responses).
 
 ## Deploy (Netlify)
 

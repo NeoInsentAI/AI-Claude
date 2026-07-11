@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contact — TechMaastricht</title>
-  <meta name="description" content="Neem contact op met TechMaastricht — word lid van de community, stel vragen over programma's, of verken een partnerschap in Nederland, Duitsland, België en Luxemburg.">
+  <meta name="description" content="Neem contact op met TechMaastricht — word spreker, doe mee aan een evenement, sluit je aan bij het team, of stel een algemene vraag.">
   <meta property="og:title" content="Contact — TechMaastricht">
   <meta property="og:description" content="Neem contact op of word lid van de community.">
   <meta property="og:image" content="assets/images/hub-graphic.svg">
@@ -42,32 +42,65 @@
   <main>
     <section class="page-hero">
       <h1>Laten we praten</h1>
-      <p>Of je nu wilt meedoen, mentor wilt worden, wilt samenwerken, of gewoon een vraag hebt — dit is de snelste manier om ons te bereiken.</p>
+      <p>Of je nu spreker wilt worden, wilt deelnemen aan een evenement, deel wilt worden van het team, of gewoon een vraag hebt — dit is de snelste manier om ons te bereiken.</p>
     </section>
 
     <section class="section">
       <div class="container grid grid-2">
         <div>
-          <h2>Stuur een bericht</h2>
-          <form class="contact-form" style="margin-top: 24px;" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
-            <div>
-              <label for="name">Naam</label>
-              <input type="text" id="name" name="name" required>
+          <div class="form-tabs" role="tablist" aria-label="Reden van contact">
+            <button type="button" class="form-tab is-active" role="tab" id="tab-general" aria-controls="general" aria-selected="true" data-target="general">Algemeen</button>
+            <button type="button" class="form-tab" role="tab" id="tab-speaker" aria-controls="speaker" aria-selected="false" data-target="speaker">Spreker worden</button>
+            <button type="button" class="form-tab" role="tab" id="tab-event" aria-controls="event" aria-selected="false" data-target="event">Evenement bijwonen</button>
+            <button type="button" class="form-tab" role="tab" id="tab-team" aria-controls="team" aria-selected="false" data-target="team">Word deel van het team</button>
+          </div>
+
+          <div class="form-panel" id="general" role="tabpanel" aria-labelledby="tab-general">
+            <h2>Stuur een bericht</h2>
+            <form class="contact-form" style="margin-top: 24px;" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+              <div>
+                <label for="general-name">Naam</label>
+                <input type="text" id="general-name" name="name" required>
+              </div>
+              <div>
+                <label for="general-email">E-mail</label>
+                <input type="email" id="general-email" name="email" required>
+              </div>
+              <div>
+                <label for="general-reason">Ik neem contact op over</label>
+                <input type="text" id="general-reason" name="reason" placeholder="Partnerschap, algemene vraag, of iets anders">
+              </div>
+              <div>
+                <label for="general-message">Bericht</label>
+                <textarea id="general-message" name="message" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Verstuur bericht</button>
+            </form>
+          </div>
+
+          <div class="form-panel" id="speaker" role="tabpanel" aria-labelledby="tab-speaker" hidden>
+            <h2>Spreker worden</h2>
+            <p style="margin-top: 12px;">Heb je een verhaal, project of les die de community moet horen? Vul het formulier hieronder in en we nemen contact op.</p>
+            <div class="gform-embed">
+              <iframe src="YOUR_SPEAKER_GOOGLE_FORM_EMBED_URL" title="Spreker aanmeldformulier" loading="lazy">Laden…</iframe>
             </div>
-            <div>
-              <label for="email">E-mail</label>
-              <input type="email" id="email" name="email" required>
+          </div>
+
+          <div class="form-panel" id="event" role="tabpanel" aria-labelledby="tab-event" hidden>
+            <h2>Deelnemen aan een evenement</h2>
+            <p style="margin-top: 12px;">Meld je aan voor een aankomend evenement — we sturen je de details toe.</p>
+            <div class="gform-embed">
+              <iframe src="YOUR_EVENT_GOOGLE_FORM_EMBED_URL" title="Evenement aanmeldformulier" loading="lazy">Laden…</iframe>
             </div>
-            <div>
-              <label for="reason">Ik neem contact op over</label>
-              <input type="text" id="reason" name="reason" placeholder="Meedoen, mentorschap, partnerschap, evenement, anders">
+          </div>
+
+          <div class="form-panel" id="team" role="tabpanel" aria-labelledby="tab-team" hidden>
+            <h2>Word deel van het team</h2>
+            <p style="margin-top: 12px;">We groeien en zoeken mensen die willen meebouwen. Vertel ons over jezelf.</p>
+            <div class="gform-embed">
+              <iframe src="YOUR_TEAM_GOOGLE_FORM_EMBED_URL" title="Team aanmeldformulier" loading="lazy">Laden…</iframe>
             </div>
-            <div>
-              <label for="message">Bericht</label>
-              <textarea id="message" name="message" required></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Verstuur bericht</button>
-          </form>
+          </div>
         </div>
         <div>
           <h2>Andere manieren om ons te bereiken</h2>

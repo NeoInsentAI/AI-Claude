@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Contact — TechMaastricht</title>
-  <meta name="description" content="Get in touch with TechMaastricht — join the community, ask about programs, or explore a partnership across the Netherlands, Germany, Belgium, and Luxembourg.">
+  <meta name="description" content="Get in touch with TechMaastricht — become a speaker, join an event, join the team, or ask a general question.">
   <meta property="og:title" content="Contact — TechMaastricht">
   <meta property="og:description" content="Get in touch or join the community.">
   <meta property="og:image" content="../assets/images/hub-graphic.svg">
@@ -42,32 +42,65 @@
   <main>
     <section class="page-hero">
       <h1>Let's talk</h1>
-      <p>Whether you want to join, mentor, partner, or just ask a question — this is the fastest way to reach us.</p>
+      <p>Whether you want to become a speaker, join an event, join the team, or just ask a question — this is the fastest way to reach us.</p>
     </section>
 
     <section class="section">
       <div class="container grid grid-2">
         <div>
-          <h2>Send a message</h2>
-          <form class="contact-form" style="margin-top: 24px;" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
-            <div>
-              <label for="name">Name</label>
-              <input type="text" id="name" name="name" required>
+          <div class="form-tabs" role="tablist" aria-label="Reason for contact">
+            <button type="button" class="form-tab is-active" role="tab" id="tab-general" aria-controls="general" aria-selected="true" data-target="general">General</button>
+            <button type="button" class="form-tab" role="tab" id="tab-speaker" aria-controls="speaker" aria-selected="false" data-target="speaker">Become a Speaker</button>
+            <button type="button" class="form-tab" role="tab" id="tab-event" aria-controls="event" aria-selected="false" data-target="event">Join an Event</button>
+            <button type="button" class="form-tab" role="tab" id="tab-team" aria-controls="team" aria-selected="false" data-target="team">Join the Team</button>
+          </div>
+
+          <div class="form-panel" id="general" role="tabpanel" aria-labelledby="tab-general">
+            <h2>Send a message</h2>
+            <form class="contact-form" style="margin-top: 24px;" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+              <div>
+                <label for="general-name">Name</label>
+                <input type="text" id="general-name" name="name" required>
+              </div>
+              <div>
+                <label for="general-email">Email</label>
+                <input type="email" id="general-email" name="email" required>
+              </div>
+              <div>
+                <label for="general-reason">I'm reaching out about</label>
+                <input type="text" id="general-reason" name="reason" placeholder="Partnership, general question, or something else">
+              </div>
+              <div>
+                <label for="general-message">Message</label>
+                <textarea id="general-message" name="message" required></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Send Message</button>
+            </form>
+          </div>
+
+          <div class="form-panel" id="speaker" role="tabpanel" aria-labelledby="tab-speaker" hidden>
+            <h2>Become a Speaker</h2>
+            <p style="margin-top: 12px;">Got a story, project, or lesson the community should hear? Fill in the form below and we'll get back to you.</p>
+            <div class="gform-embed">
+              <iframe src="YOUR_SPEAKER_GOOGLE_FORM_EMBED_URL" title="Speaker application form" loading="lazy">Loading…</iframe>
             </div>
-            <div>
-              <label for="email">Email</label>
-              <input type="email" id="email" name="email" required>
+          </div>
+
+          <div class="form-panel" id="event" role="tabpanel" aria-labelledby="tab-event" hidden>
+            <h2>Join an Event</h2>
+            <p style="margin-top: 12px;">Sign up for an upcoming event — we'll send you the details.</p>
+            <div class="gform-embed">
+              <iframe src="YOUR_EVENT_GOOGLE_FORM_EMBED_URL" title="Event sign-up form" loading="lazy">Loading…</iframe>
             </div>
-            <div>
-              <label for="reason">I'm reaching out about</label>
-              <input type="text" id="reason" name="reason" placeholder="Joining, mentoring, partnership, event, other">
+          </div>
+
+          <div class="form-panel" id="team" role="tabpanel" aria-labelledby="tab-team" hidden>
+            <h2>Join the Team</h2>
+            <p style="margin-top: 12px;">We're growing and looking for people who want to help build this. Tell us about yourself.</p>
+            <div class="gform-embed">
+              <iframe src="YOUR_TEAM_GOOGLE_FORM_EMBED_URL" title="Team application form" loading="lazy">Loading…</iframe>
             </div>
-            <div>
-              <label for="message">Message</label>
-              <textarea id="message" name="message" required></textarea>
-            </div>
-            <button type="submit" class="btn btn-primary" style="align-self: flex-start;">Send Message</button>
-          </form>
+          </div>
         </div>
         <div>
           <h2>Other ways to reach us</h2>

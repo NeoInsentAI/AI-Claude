@@ -143,4 +143,12 @@ img, svg { max-width: 100%; display: block; }
 .contact-info-list li { margin-bottom: 20px; }
 .contact-info-list .label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-grey); margin-bottom: 4px; }
 
+/* Contact form tabs */
+.form-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.form-tab { padding: 10px 20px; border-radius: 999px; border: 2px solid var(--color-charcoal); background: transparent; color: var(--color-charcoal); font-family: var(--font-body); font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: background 0.2s, color 0.2s; }
+.form-tab:hover { background: var(--color-charcoal); color: var(--color-white); }
+.form-tab.is-active { background: var(--color-red); border-color: var(--color-red); color: var(--color-white); }
+.gform-embed { margin-top: 24px; }
+.gform-embed iframe { width: 100%; min-height: 900px; border: none; border-radius: var(--radius); }
+
 .pillar-block .card-link { color: var(--color-red); font-weight: 600; font-size: 0.9rem; margin-top: 12px; display: inline-block; }
