@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chooseFocusAreas, targetDayFor } from './generatePlan'
+import { chooseFocusAreas, currentWeekStartISO, targetDayFor } from './generatePlan'
 import type { Skill } from '../analysis/skillConfig'
 
 describe('chooseFocusAreas', () => {
@@ -14,6 +14,24 @@ describe('chooseFocusAreas', () => {
 
   it('falls back to all 3 skills evenly when there is no score history', () => {
     expect(chooseFocusAreas([])).toEqual(['shooting', 'passing', 'first_touch'])
+  })
+})
+
+describe('currentWeekStartISO', () => {
+  it('returns the most recent Sunday for a mid-week date', () => {
+    // Wednesday July 15, 2026 -> week started Sunday July 12
+    expect(currentWeekStartISO(new Date(2026, 6, 15))).toBe('2026-07-12')
+  })
+
+  it('returns the same day when today is already Sunday, even just after local midnight', () => {
+    // This is the exact case toISOString() got wrong: 00:30 local on Sunday is still
+    // Saturday in UTC for any timezone east of Greenwich.
+    expect(currentWeekStartISO(new Date(2026, 6, 12, 0, 30))).toBe('2026-07-12')
+  })
+
+  it('crosses month boundaries correctly', () => {
+    // Saturday August 1, 2026 -> week started Sunday July 26
+    expect(currentWeekStartISO(new Date(2026, 7, 1))).toBe('2026-07-26')
   })
 })
 

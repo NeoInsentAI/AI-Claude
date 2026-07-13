@@ -56,6 +56,11 @@ export function ProgressPage() {
         {tiles?.map((t) => (
           <li key={t.attribute}>
             <strong>{t.label}:</strong> {t.value === null ? 'Collecting data' : Math.round(t.value)}
+            {/* A tile averaged from 1 skill shouldn't look as authoritative as one built from all 3.
+                weak_foot_confidence is account-wide (no per-skill split), so it gets no qualifier. */}
+            {t.attribute !== 'weak_foot_confidence' && t.value !== null && t.skillsWithData < 3 && (
+              <small> (based on {t.skillsWithData} of 3 skills so far)</small>
+            )}
           </li>
         ))}
       </ul>

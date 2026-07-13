@@ -1,111 +1,224 @@
+/* FootTrack — mobile-first app theme.
+   Single light theme by choice for MVP (declared via color-scheme, not an omission):
+   every color here is hand-picked against a light ground, and a half-considered dark
+   variant would look worse than none. Brand teal matches the PWA manifest theme_color. */
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --teal: #0e9e86;
+  --teal-dark: #0b7a68;
+  --ink: #14201c;
+  --ink-soft: #52625c;
+  --ink-faint: #8a978f;
+  --bg: #f4f8f6;
+  --surface: #ffffff;
+  --border: #dde5e1;
+  --danger: #b3261e;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+* {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.55 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Keep content clear of the fixed bottom nav (plus iOS home-indicator inset). */
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+#root {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 20px 16px;
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+  font-size: 1.6rem;
+  line-height: 1.2;
+  margin: 0 0 12px;
+  color: var(--ink);
 }
+
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font-size: 1.1rem;
+  margin: 24px 0 8px;
+  color: var(--ink);
 }
+
 p {
-  margin: 0;
+  margin: 0 0 14px;
+  color: var(--ink-soft);
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
+a {
+  color: var(--teal-dark);
+  font-weight: 600;
+  text-decoration: none;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+a:active {
+  opacity: 0.7;
+}
+
+/* Screen-level links (Home's "Record a new session", Feedback's drill links, auth switchers)
+   are block-level actions on mobile — give them breathing room and a touch target. */
+#root > div > a,
+#root > div > p > a,
+form + p a {
+  display: inline-block;
+  padding: 6px 0;
+}
+
+button {
+  display: block;
+  width: 100%;
+  padding: 13px 16px;
+  margin: 10px 0;
+  border: none;
+  border-radius: 10px;
+  background: var(--teal);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:active {
+  background: var(--teal-dark);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--teal-dark);
+  outline-offset: 2px;
+}
+
+label {
+  display: block;
+  margin: 0 0 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+input,
+select {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+/* Radio/checkbox rows: the label text sits beside the control, not above it. */
+label:has(input[type='radio']),
+label:has(input[type='checkbox']) {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+input[type='radio'],
+input[type='checkbox'] {
+  width: auto;
+  margin: 3px 0 0;
+  accent-color: var(--teal);
+}
+
+input[type='file'] {
+  padding: 10px;
+  background: var(--surface);
+}
+
+fieldset {
+  margin: 0 0 14px;
+  padding: 0;
+  border: none;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Lists (plan items, progress tiles, feedback wins/corrections) read as cards. */
+ul {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+}
+
+li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+}
+
+li strong {
+  color: var(--ink);
+}
+
+section {
+  margin-bottom: 20px;
+}
+
+small {
+  color: var(--ink-faint);
+}
+
+[role='alert'] {
+  color: var(--danger);
+  background: #fdecea;
+  border: 1px solid #f5c6c2;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+/* Bottom tab bar */
+nav[aria-label='Main'] {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+
+nav[aria-label='Main'] a {
+  flex: 1;
+  text-align: center;
+  padding: 13px 4px 11px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+nav[aria-label='Main'] a.active {
+  color: var(--teal-dark);
+  box-shadow: inset 0 3px 0 var(--teal);
 }

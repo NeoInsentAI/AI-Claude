@@ -25,6 +25,9 @@ export function HomePage() {
         const { data, error: fetchError } = await supabase
           .from('training_sessions')
           .select('id, skill, session_score, created_at')
+          // Only completed sessions belong on the "last session" card — 'failed'/'analyzing' rows
+          // carry a pre-computed score that was never validated (see saveSessionResults' lifecycle).
+          .eq('status', 'complete')
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()

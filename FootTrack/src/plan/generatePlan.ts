@@ -13,6 +13,20 @@ export function targetDayFor(index: number): number {
   return Math.min(7, (index + 1) * 2)
 }
 
+/**
+ * The current week's start (most recent Sunday) as a YYYY-MM-DD string, computed entirely in
+ * LOCAL calendar terms. Deliberately avoids `toISOString()`: that converts the instant to UTC
+ * first, so for any non-UTC timezone there's a window near local midnight where the rendered
+ * date flips by one day (e.g. 1:00 AM Sunday in UTC+5:30 renders as Saturday's date).
+ */
+export function currentWeekStartISO(now: Date = new Date()): string {
+  const sunday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+  const y = sunday.getFullYear()
+  const m = String(sunday.getMonth() + 1).padStart(2, '0')
+  const d = String(sunday.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export async function generateWeeklyPlan(profileId: string): Promise<string> {
   const { data: rows } = await supabase
     .from('skill_scores')
@@ -34,15 +48,29 @@ export async function generateWeeklyPlan(profileId: string): Promise<string> {
       ? `Starting with all 3 skills this week to build your baseline.`
       : `Focusing on ${focusAreas.join(' and ')} this week — your lowest technique scores right now.`
 
-  const weekStart = new Date()
-  weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+  const weekStart = currentWeekStartISO()
 
   const { data: plan, error } = await supabase
     .from('plans')
-    .insert({ profile_id: profileId, week_start: weekStart.toISOString().slice(0, 10), focus_areas: focusAreas, rationale })
+    .insert({ profile_id: profileId, week_start: weekStart, focus_areas: focusAreas, rationale })
     .select()
     .single()
-  if (error) throw error
+  if (error) {
+    // 23505 = unique_violation on plans(profile_id, week_start): a concurrent call (second tab,
+    // fast double-mount) already created this week's plan — and its items — between our check and
+    // insert. Return the existing plan instead of failing or duplicating.
+    if (error.code === '23505') {
+      const { data: existing, error: existingError } = await supabase
+        .from('plans')
+        .select('id')
+        .eq('profile_id', profileId)
+        .eq('week_start', weekStart)
+        .single()
+      if (existingError) throw existingError
+      return existing.id
+    }
+    throw error
+  }
 
   const { data: drills } = await supabase.from('drills').select('id, category').in('category', focusAreas)
   const chosen = (drills ?? []).slice(0, 3)

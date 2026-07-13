@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { generateWeeklyPlan } from '../plan/generatePlan'
+import { currentWeekStartISO, generateWeeklyPlan } from '../plan/generatePlan'
 
 interface PlanItemRow {
   id: string
@@ -37,12 +37,13 @@ export function PlanPage() {
           return
         }
 
+        // Scoped to THIS week — an older plan existing must not stop a fresh one from being
+        // generated, otherwise the "weekly" plan is really a one-time plan shown forever.
         const { data: existing, error: existingError } = await supabase
           .from('plans')
           .select('id, rationale, focus_areas')
           .eq('profile_id', userData.user.id)
-          .order('week_start', { ascending: false })
-          .limit(1)
+          .eq('week_start', currentWeekStartISO())
           .maybeSingle()
 
         if (cancelled) return

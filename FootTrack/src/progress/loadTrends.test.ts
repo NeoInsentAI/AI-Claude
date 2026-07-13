@@ -30,4 +30,11 @@ describe('buildTrendTiles', () => {
   it('returns null for a tile with no data yet', () => {
     expect(buildTrendTiles([]).find((t) => t.attribute === 'balance')?.value).toBeNull()
   })
+
+  it('reports how many skills contributed, so a 1-skill average is distinguishable from a 3-skill one', () => {
+    const rows = [{ attribute: 'technique', skill: 'shooting', value: 80, computed_at: '2026-07-01' }]
+    const tiles = buildTrendTiles(rows)
+    expect(tiles.find((t) => t.attribute === 'technique')?.skillsWithData).toBe(1)
+    expect(tiles.find((t) => t.attribute === 'balance')?.skillsWithData).toBe(0)
+  })
 })

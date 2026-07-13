@@ -5,6 +5,7 @@ import { SignInPage } from './auth/SignInPage'
 import { SignUpPage } from './auth/SignUpPage'
 import { RequireAuth } from './routes/RequireAuth'
 import { NavBar } from './routes/NavBar'
+import { ErrorBoundary } from './routes/ErrorBoundary'
 import { OnboardingPage } from './onboarding/OnboardingPage'
 import { HomePage } from './screens/HomePage'
 import { FeedbackPage } from './screens/FeedbackPage'
@@ -45,10 +46,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppShell />
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppShell />
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }
