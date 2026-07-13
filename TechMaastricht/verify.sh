@@ -26,14 +26,19 @@ check_page() {
   grep -q 'id="nav-toggle"' "$path" || { echo "FAIL: $path missing nav-toggle button"; fail=1; }
   grep -q 'id="nav-links"' "$path" || { echo "FAIL: $path missing nav-links container"; fail=1; }
   grep -q 'class="lang-switch"' "$path" || { echo "FAIL: $path missing language switcher"; fail=1; }
+  grep -q 'rel="canonical"' "$path" || { echo "FAIL: $path missing canonical tag"; fail=1; }
+  grep -q 'hreflang="nl"' "$path" || { echo "FAIL: $path missing hreflang alternates"; fail=1; }
+  grep -q 'property="og:image" content="https://' "$path" || { echo "FAIL: $path og:image not absolute"; fail=1; }
   if [ "$dir" = "." ]; then
     grep -q 'css/style.css"' "$path" || { echo "FAIL: $path missing stylesheet link"; fail=1; }
     grep -q 'js/main.js"' "$path" || { echo "FAIL: $path missing script tag"; fail=1; }
     grep -q '<html lang="nl">' "$path" || { echo "FAIL: $path missing lang=\"nl\""; fail=1; }
+    grep -q '<span class="lang-active">NL</span>' "$path" || { echo "FAIL: $path lang switcher active state should be NL"; fail=1; }
   else
     grep -q '\.\./css/style.css"' "$path" || { echo "FAIL: $path missing stylesheet link"; fail=1; }
     grep -q '\.\./js/main.js"' "$path" || { echo "FAIL: $path missing script tag"; fail=1; }
     grep -q '<html lang="en">' "$path" || { echo "FAIL: $path missing lang=\"en\""; fail=1; }
+    grep -q '<span class="lang-active">EN</span>' "$path" || { echo "FAIL: $path lang switcher active state should be EN"; fail=1; }
   fi
   for target in "${PAGES[@]}"; do
     grep -q "href=\"$target\"" "$path" || { echo "FAIL: $path missing nav link to $target"; fail=1; }
