@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import handler from './login'
-import { hashPassword } from '../src/lib/session'
+import { hashPassword, verifySessionToken } from '../src/lib/session'
+import { readSessionCookie } from '../src/lib/cookies'
 
 function createMockRes() {
   const res: any = { statusCode: 200, headers: {} as Record<string, string>, body: undefined }
@@ -42,6 +43,15 @@ describe('POST /api/login', () => {
     expect(res.statusCode).toBe(200)
     expect(res.headers['Set-Cookie']).toContain('ni_session=')
     expect(res.headers['Set-Cookie']).toContain('HttpOnly')
+  })
+
+  it('issues a session token that verifies with the session secret', () => {
+    const res = createMockRes()
+    handler({ method: 'POST', body: { password: 'correct-horse-battery-staple' } } as any, res)
+    expect(res.statusCode).toBe(200)
+    const token = readSessionCookie(res.headers['Set-Cookie'])
+    expect(token).not.toBeNull()
+    expect(verifySessionToken(token as string, 'test-secret')).toBe(true)
   })
 
   it('returns 500 when server env vars are missing', () => {
