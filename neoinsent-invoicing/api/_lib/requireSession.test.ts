@@ -42,6 +42,22 @@ describe('requireSession', () => {
     expect(res.statusCode).toBe(401)
   })
 
+  it('returns false and responds 401 for a token signed with a different secret', () => {
+    const token = createSessionToken('other-secret')
+    const req: any = { headers: { cookie: `ni_session=${token}` } }
+    const res = createMockRes()
+    expect(requireSession(req, res)).toBe(false)
+    expect(res.statusCode).toBe(401)
+  })
+
+  it('returns false and responds 401 for an expired token', () => {
+    const token = createSessionToken('test-secret', Date.now() - 31 * 24 * 60 * 60 * 1000)
+    const req: any = { headers: { cookie: `ni_session=${token}` } }
+    const res = createMockRes()
+    expect(requireSession(req, res)).toBe(false)
+    expect(res.statusCode).toBe(401)
+  })
+
   it('returns false and responds 500 when SESSION_SECRET is missing', () => {
     delete process.env.SESSION_SECRET
     const req: any = { headers: {} }
