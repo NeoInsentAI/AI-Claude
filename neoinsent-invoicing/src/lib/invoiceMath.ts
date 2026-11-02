@@ -16,6 +16,12 @@ export interface InvoiceTotals {
   total: number
 }
 
+// Verified correct for non-negative inputs only (quantities/prices/VAT rates
+// are never negative in this app's current scope). Math.round rounds half-up
+// rather than half-away-from-zero, so this is asymmetric for negative values
+// (e.g. round2(-1.005) === -1, not -1.01). If a future credit-note/correction
+// feature introduces negative amounts, re-verify this function's behavior
+// rather than assuming it already works.
 function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
@@ -30,6 +36,9 @@ function round2(value: number): number {
 // rounding-to-even vs. rounding-at-the-end drift) — that divergence is
 // expected and is why this strategy is fixed deliberately, not a bug.
 export function computeLine(line: InvoiceLineInput): LineComputed {
+  if (!Number.isFinite(line.quantity) || !Number.isFinite(line.unitPrice) || !Number.isFinite(line.vatRate)) {
+    throw new Error(`Invalid invoice line input: ${JSON.stringify(line)}`)
+  }
   const lineSubtotal = round2(line.quantity * line.unitPrice)
   const lineVat = round2(lineSubtotal * (line.vatRate / 100))
   const lineTotal = round2(lineSubtotal + lineVat)

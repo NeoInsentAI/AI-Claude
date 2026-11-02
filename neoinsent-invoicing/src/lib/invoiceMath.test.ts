@@ -25,6 +25,14 @@ describe('computeLine', () => {
       lineTotal: 72.56,
     })
   })
+
+  it('throws for a NaN quantity', () => {
+    expect(() => computeLine({ quantity: NaN, unitPrice: 100, vatRate: 21 })).toThrow()
+  })
+
+  it('throws for a non-finite unit price', () => {
+    expect(() => computeLine({ quantity: 10, unitPrice: Infinity, vatRate: 21 })).toThrow()
+  })
 })
 
 describe('computeInvoiceTotals', () => {
