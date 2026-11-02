@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { EU_COUNTRY_CODES, determineVatTreatment, isPlausibleVatNumber } from './vat'
+import {
+  EU_COUNTRY_CODES,
+  determineVatTreatment,
+  isInvoiceVatTreatment,
+  isPlausibleVatNumber,
+} from './vat'
 
 describe('EU_COUNTRY_CODES', () => {
   it('has 26 entries and does not include NL', () => {
@@ -27,6 +32,28 @@ describe('isPlausibleVatNumber', () => {
   it('rejects empty or too-short values', () => {
     expect(isPlausibleVatNumber('')).toBe(false)
     expect(isPlausibleVatNumber('DE')).toBe(false)
+  })
+
+  it('trims and uppercases before validating', () => {
+    expect(isPlausibleVatNumber(' de123456789 ')).toBe(true)
+  })
+
+  it('returns false instead of throwing for non-string input', () => {
+    expect(isPlausibleVatNumber(null as any)).toBe(false)
+    expect(isPlausibleVatNumber(undefined as any)).toBe(false)
+    expect(isPlausibleVatNumber(123456789 as any)).toBe(false)
+  })
+})
+
+describe('isInvoiceVatTreatment', () => {
+  it('returns true for the two storable treatments', () => {
+    expect(isInvoiceVatTreatment('nl_standard')).toBe(true)
+    expect(isInvoiceVatTreatment('eu_reverse_charge')).toBe(true)
+  })
+
+  it('returns false for the two non-storable treatments', () => {
+    expect(isInvoiceVatTreatment('blocked_missing_vat_number')).toBe(false)
+    expect(isInvoiceVatTreatment('not_supported')).toBe(false)
   })
 })
 
@@ -62,6 +89,35 @@ describe('determineVatTreatment', () => {
 
   it('returns not_supported for a non-EU, non-NL country', () => {
     expect(determineVatTreatment('US', null)).toEqual({
+      treatment: 'not_supported',
+      defaultRate: null,
+    })
+  })
+
+  it('trims and uppercases both the country and the VAT number before matching', () => {
+    expect(determineVatTreatment(' de ', 'de123456789')).toEqual({
+      treatment: 'eu_reverse_charge',
+      defaultRate: 0,
+    })
+  })
+
+  it('blocks an EU client whose VAT number prefix does not match the declared country', () => {
+    expect(determineVatTreatment('DE', 'IE1234567X')).toEqual({
+      treatment: 'blocked_missing_vat_number',
+      defaultRate: null,
+    })
+  })
+
+  it('returns not_supported instead of throwing for non-string clientCountry', () => {
+    expect(determineVatTreatment(null as any, null)).toEqual({
+      treatment: 'not_supported',
+      defaultRate: null,
+    })
+    expect(determineVatTreatment(undefined as any, null)).toEqual({
+      treatment: 'not_supported',
+      defaultRate: null,
+    })
+    expect(determineVatTreatment(42 as any, null)).toEqual({
       treatment: 'not_supported',
       defaultRate: null,
     })
