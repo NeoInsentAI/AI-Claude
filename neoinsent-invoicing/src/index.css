@@ -8,7 +8,7 @@
   --accent-soft: #e8f1fc;
   --ink: #111a2e;
   --ink-soft: #5b6b85;
-  --ink-faint: #93a1bf;
+  --ink-faint: #607089; /* chosen to meet WCAG AA (4.5:1) against both --bg and --surface */
   --bg: #f3f5f8;
   --surface: #ffffff;
   --border: #dde3ec;
