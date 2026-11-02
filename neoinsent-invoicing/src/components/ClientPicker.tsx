@@ -45,7 +45,7 @@ export function ClientPicker({ value, onChange }: Props) {
         if (!cancelled) setClients(data.clients)
       })
       .catch((err: unknown) => {
-        if (!cancelled) setLoadError(`Could not load clients — ${errorMessage(err)}`)
+        if (!cancelled) setLoadError(`Could not load clients: ${errorMessage(err)}`)
       })
     return () => {
       cancelled = true
@@ -64,6 +64,7 @@ export function ClientPicker({ value, onChange }: Props) {
   async function handleSave() {
     setSaveError(null)
     setSaving(true)
+    let created: ClientSummary | null = null
     try {
       const { client } = await apiFetch<{ client: ClientSummary }>('/api/clients', {
         method: 'POST',
@@ -73,14 +74,19 @@ export function ClientPicker({ value, onChange }: Props) {
           kvk_number: form.kvk_number || null,
         }),
       })
-      setClients((prev) => [...prev, client])
-      setShowForm(false)
-      setForm(EMPTY_FORM)
-      onChange(client)
+      created = client
     } catch (err) {
       setSaveError(errorMessage(err))
+      return
     } finally {
       setSaving(false)
+    }
+    if (created) {
+      const newClient = created
+      setClients((prev) => [...prev, newClient].sort((a, b) => a.name.localeCompare(b.name)))
+      setShowForm(false)
+      setForm(EMPTY_FORM)
+      onChange(newClient)
     }
   }
 
