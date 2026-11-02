@@ -94,6 +94,28 @@ describe('/api/clients', () => {
     expect(clientsRepo.createClient).not.toHaveBeenCalled()
   })
 
+  it('POST stores a compacted, uppercased VAT number', async () => {
+    const input = { ...completeInput, country: 'DE', vat_number: ' de 123.456.789 ' }
+    vi.mocked(clientsRepo.createClient).mockResolvedValue({ id: '1' } as any)
+    const res = createMockRes()
+    await handler({ method: 'POST', headers: {}, body: input } as any, res)
+    expect(res.statusCode).toBe(201)
+    expect(clientsRepo.createClient).toHaveBeenCalledWith(
+      expect.objectContaining({ vat_number: 'DE123456789' }),
+    )
+  })
+
+  it('returns a JSON 500 when the repo throws', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(clientsRepo.createClient).mockRejectedValue(new Error('connection refused'))
+    const res = createMockRes()
+    await handler({ method: 'POST', headers: {}, body: { ...completeInput } } as any, res)
+    expect(res.statusCode).toBe(500)
+    expect(res.body).toEqual({ error: expect.any(String) })
+    expect(consoleError).toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
   it('rejects unsupported methods', async () => {
     const res = createMockRes()
     await handler({ method: 'DELETE', headers: {} } as any, res)
