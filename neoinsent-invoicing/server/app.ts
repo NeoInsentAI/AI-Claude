@@ -29,13 +29,15 @@ export function wrap(handler: Handler): RequestHandler {
   }
 }
 
-const SAFE_METHODS = new Set(['GET', 'HEAD'])
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 /**
  * The app runs on 127.0.0.1 with no login, so these two checks are what keep other websites out:
  * - Host must be this server (a malicious site can point its own domain at 127.0.0.1 — DNS
  *   rebinding — but the browser then sends that domain as Host).
- * - Writes to /api must not carry a foreign Origin (blocks cross-site form posts and fetches).
+ * - Writes (any method but GET/HEAD/OPTIONS, on any path) must not carry a foreign Origin (blocks
+ *   cross-site form posts and fetches). The check is path-independent on purpose: Express matching
+ *   can differ from a prefix test (e.g. letter case), so no path may slip past it.
  */
 function localhostOnly(port: number): RequestHandler {
   const hosts = new Set([`localhost:${port}`, `127.0.0.1:${port}`])
@@ -47,12 +49,7 @@ function localhostOnly(port: number): RequestHandler {
       return
     }
     const origin = req.headers.origin
-    if (
-      req.path.startsWith('/api') &&
-      !SAFE_METHODS.has(req.method) &&
-      origin !== undefined &&
-      !origins.has(origin.toLowerCase())
-    ) {
+    if (!SAFE_METHODS.has(req.method) && origin !== undefined && !origins.has(origin.toLowerCase())) {
       res.status(403).json({ error: 'Forbidden: cross-site request' })
       return
     }
@@ -78,6 +75,9 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
 export function createApp({ port, distDir = path.resolve(import.meta.dirname, '../dist') }: AppOptions): express.Express {
   const app = express()
   app.disable('x-powered-by')
+  // `/API/clients` must not reach the `/api/clients` handler.
+  app.set('case sensitive routing', true)
+  app.set('strict routing', false)
   app.use(localhostOnly(port))
   app.use(express.json({ limit: '1mb' }))
 

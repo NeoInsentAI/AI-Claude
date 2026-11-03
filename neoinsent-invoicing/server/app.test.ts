@@ -138,6 +138,33 @@ describe('localhost-only protections', () => {
     expect(res.status).toBe(403)
   })
 
+  it('rejects a foreign Origin on an uppercased API path (POST /API/clients)', async () => {
+    const server = app()
+    const res = await request(server)
+      .post('/API/clients')
+      .set('Host', HOST)
+      .set('Origin', 'https://evil.example')
+      .send(acme)
+    expect(res.status).toBe(403)
+    expect(res.body).toEqual({ error: 'Forbidden: cross-site request' })
+    const list = await request(server).get('/api/clients').set('Host', HOST)
+    expect(list.body.clients).toEqual([])
+  })
+
+  it('does not route a mixed-case API path to the handler (case-sensitive routing)', async () => {
+    const server = app()
+    const res = await request(server).post('/Api/clients').set('Host', HOST).send(acme)
+    expect(res.status).toBe(404)
+    const list = await request(server).get('/api/clients').set('Host', HOST)
+    expect(list.body.clients).toEqual([])
+  })
+
+  it('rejects a foreign Origin on a non-API write', async () => {
+    const res = await request(app()).post('/anything').set('Host', HOST).set('Origin', 'https://evil.example')
+    expect(res.status).toBe(403)
+    expect(res.body).toEqual({ error: 'Forbidden: cross-site request' })
+  })
+
   it('allows a write from the app’s own Origin', async () => {
     for (const origin of [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`]) {
       const res = await request(app()).post('/api/clients').set('Host', HOST).set('Origin', origin).send(acme)
