@@ -19,6 +19,8 @@ function createMockRes() {
   return res
 }
 
+const CLIENT_ID = '0b6f8c1e-3d2a-4f5b-9c7d-1e2f3a4b5c6d'
+
 const completeInput = {
   name: 'Globex GmbH',
   email: 'ap@globex.test',
@@ -28,7 +30,7 @@ const completeInput = {
   country: 'DE',
 }
 
-function patchReq(body: unknown, id: unknown = 'client-1') {
+function patchReq(body: unknown, id: unknown = CLIENT_ID) {
   return { method: 'PATCH', headers: {}, query: { id }, body } as any
 }
 
@@ -47,7 +49,7 @@ describe('/api/clients/[id]', () => {
 
   it('rejects non-PATCH methods with 405', async () => {
     const res = createMockRes()
-    await handler({ method: 'GET', headers: {}, query: { id: 'client-1' } } as any, res)
+    await handler({ method: 'GET', headers: {}, query: { id: CLIENT_ID } } as any, res)
     expect(res.statusCode).toBe(405)
     expect(clientsRepo.updateClient).not.toHaveBeenCalled()
   })
@@ -56,6 +58,14 @@ describe('/api/clients/[id]', () => {
     const res = createMockRes()
     await handler(patchReq({ ...completeInput }, ['a', 'b']), res)
     expect(res.statusCode).toBe(400)
+    expect(clientsRepo.updateClient).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 for a malformed id without calling the repo', async () => {
+    const res = createMockRes()
+    await handler(patchReq({ ...completeInput }, 'not-a-uuid'), res)
+    expect(res.statusCode).toBe(404)
+    expect(res.body).toEqual({ error: 'Client not found' })
     expect(clientsRepo.updateClient).not.toHaveBeenCalled()
   })
 
@@ -76,14 +86,14 @@ describe('/api/clients/[id]', () => {
   })
 
   it('updates the client with normalized input', async () => {
-    const updated = { id: 'client-1', ...completeInput, vat_number: 'DE123456789' }
+    const updated = { id: CLIENT_ID, ...completeInput, vat_number: 'DE123456789' }
     vi.mocked(clientsRepo.updateClient).mockResolvedValue(updated as any)
     const res = createMockRes()
     await handler(patchReq({ ...completeInput, country: ' de ', vat_number: ' de 123.456.789 ' }), res)
     expect(res.statusCode).toBe(200)
     expect(res.body).toEqual({ client: updated })
     expect(clientsRepo.updateClient).toHaveBeenCalledWith(
-      'client-1',
+      CLIENT_ID,
       expect.objectContaining({ country: 'DE', vat_number: 'DE123456789', kvk_number: null }),
     )
   })

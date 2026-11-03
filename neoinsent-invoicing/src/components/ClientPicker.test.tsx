@@ -176,13 +176,47 @@ describe('ClientPicker', () => {
     expect(screen.getByText('Save changes')).toBeInTheDocument()
   })
 
-  it('starts "+ New client" from an empty form after editing', async () => {
+  it('closes the edit form when a different client is selected', async () => {
+    stubFetchClients()
+    const onChange = vi.fn()
+    render(<ControlledPicker onChange={onChange} initial={CLIENTS[1]} />)
+    await screen.findByText('Acme BV')
+
+    await userEvent.click(screen.getByText('Edit client'))
+    expect(screen.getByText('Save changes')).toBeInTheDocument()
+    await userEvent.selectOptions(screen.getByLabelText('Client'), '1')
+
+    expect(onChange).toHaveBeenCalledWith(CLIENTS[0])
+    expect(screen.queryByText('Save changes')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+  })
+
+  it('hides "+ New client" while editing', async () => {
     stubFetchClients()
     render(<ClientPicker value={CLIENTS[1]} onChange={() => {}} />)
     await screen.findByText('Acme BV')
 
     await userEvent.click(screen.getByText('Edit client'))
+    expect(screen.queryByText('+ New client')).not.toBeInTheDocument()
+  })
+
+  it('hides "Edit client" while creating a new client', async () => {
+    stubFetchClients()
+    render(<ClientPicker value={CLIENTS[1]} onChange={() => {}} />)
+    await screen.findByText('Acme BV')
+
+    await userEvent.click(screen.getByText('+ New client'))
+    expect(screen.queryByText('Edit client')).not.toBeInTheDocument()
+  })
+
+  it('starts "+ New client" from an empty form after an edit is closed', async () => {
+    stubFetchClients()
+    render(<ControlledPicker onChange={() => {}} initial={CLIENTS[1]} />)
+    await screen.findByText('Acme BV')
+
+    await userEvent.click(screen.getByText('Edit client'))
     expect(screen.getByLabelText('Name')).toHaveValue('Globex GmbH')
+    await userEvent.selectOptions(screen.getByLabelText('Client'), '1')
     await userEvent.click(screen.getByText('+ New client'))
 
     expect(screen.getByLabelText('Name')).toHaveValue('')

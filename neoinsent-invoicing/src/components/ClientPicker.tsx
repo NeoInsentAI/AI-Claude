@@ -19,7 +19,13 @@ interface Props {
   onChange: (client: ClientSummary) => void
 }
 
-const EMPTY_FORM = {
+// Every editable client field. The PATCH replaces all of them, so the form must
+// carry each one; adding a field to ClientSummary fails the build until it does.
+type ClientField = keyof Omit<ClientSummary, 'id'>
+
+type FormState = Record<ClientField, string>
+
+const EMPTY_FORM: FormState = {
   name: '',
   email: '',
   address_line: '',
@@ -31,8 +37,6 @@ const EMPTY_FORM = {
   // No input for this yet; kept in state so editing a client does not wipe it.
   contact_person: '',
 }
-
-type FormState = typeof EMPTY_FORM
 
 // 'create' adds a new client; a client id means that client is being edited.
 type FormMode = 'create' | { editingId: string }
@@ -81,13 +85,21 @@ export function ClientPicker({ value, onChange }: Props) {
     }
   }, [])
 
-  function update(field: keyof FormState, fieldValue: string) {
+  function update(field: ClientField, fieldValue: string) {
     setForm((prev) => ({ ...prev, [field]: fieldValue }))
   }
 
   function handleSelect(id: string) {
     const client = clients.find((c) => c.id === id)
-    if (client) onChange(client)
+    if (!client) return
+    // An open edit form belongs to the previously selected client; saving it
+    // later would switch the selection back, so close it.
+    if (formMode !== null && formMode !== 'create') {
+      setFormMode(null)
+      setForm(EMPTY_FORM)
+      setSaveError(null)
+    }
+    onChange(client)
   }
 
   function openCreateForm() {
@@ -145,9 +157,7 @@ export function ClientPicker({ value, onChange }: Props) {
     }
   }
 
-  const isCreating = formMode === 'create'
   const isEditing = formMode !== null && formMode !== 'create'
-  const isEditingSelected = isEditing && value !== null && formMode.editingId === value.id
 
   return (
     <div>
@@ -172,12 +182,12 @@ export function ClientPicker({ value, onChange }: Props) {
         </p>
       )}
 
-      {!isCreating && (
+      {formMode === null && (
         <button type="button" className="btn" onClick={openCreateForm}>
           + New client
         </button>
       )}
-      {value && !isEditingSelected && (
+      {value && formMode === null && (
         <button
           type="button"
           className="btn"
