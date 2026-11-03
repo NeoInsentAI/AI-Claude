@@ -3,8 +3,8 @@ import { determineVatTreatment, type InvoiceVatTreatment, type VatTreatment } fr
 
 export type ClientCheck = { ok: true } | { ok: false; error: string }
 
-// Explains why the draft's VAT treatment doesn't fit the client as stored now.
-function vatMismatchMessage(expected: VatTreatment): string {
+/** Explains why the draft's VAT treatment doesn't fit the client as stored now. */
+export function vatMismatchMessage(expected: VatTreatment): string {
   switch (expected) {
     case 'blocked_missing_vat_number':
       return 'This client needs a valid VAT number matching their country before you can invoice them'
