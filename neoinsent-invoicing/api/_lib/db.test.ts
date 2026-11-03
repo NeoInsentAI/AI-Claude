@@ -3,16 +3,20 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  backupDb,
   closeDb,
+  defaultDataDir,
   fromCents,
   getDataDir,
   getDb,
   getInvoicesDir,
   nextInvoiceNumber,
   openDb,
+  rotateBackups,
   toCents,
+  toHundredths,
   withTransaction,
 } from './db'
 
@@ -26,7 +30,8 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  db.close()
+  vi.restoreAllMocks()
+  if (db.isOpen) db.close()
   closeDb()
   if (originalDataDir === undefined) delete process.env.NEOINSENT_DATA_DIR
   else process.env.NEOINSENT_DATA_DIR = originalDataDir
@@ -49,21 +54,51 @@ function insertInvoice(fields: {
   status?: string
   invoiceNumber?: string | null
   snapshot?: string | null
+  finalizedAt?: string | null
+  issueDate?: string
+  dueDate?: string
 }): string {
   const id = crypto.randomUUID()
+  const status = fields.status ?? 'draft'
+  const finalizedAt =
+    'finalizedAt' in fields ? fields.finalizedAt : status === 'final' ? now : null
   db.prepare(
     `insert into invoices (id, invoice_number, client_id, status, language, vat_treatment,
-       issue_date, due_date, client_snapshot, created_at)
-     values (?, ?, ?, ?, 'nl', 'nl_standard', '2026-11-03', '2026-12-03', ?, ?)`,
+       issue_date, due_date, client_snapshot, created_at, finalized_at)
+     values (?, ?, ?, ?, 'nl', 'nl_standard', ?, ?, ?, ?, ?)`,
   ).run(
     id,
     fields.invoiceNumber ?? null,
     fields.clientId,
-    fields.status ?? 'draft',
+    status,
+    fields.issueDate ?? '2026-11-03',
+    fields.dueDate ?? '2026-12-03',
     fields.snapshot ?? null,
     now,
+    finalizedAt ?? null,
   )
   return id
+}
+
+function insertItem(invoiceId: string, sortOrder = 0): string {
+  const id = crypto.randomUUID()
+  db.prepare(
+    `insert into invoice_items (id, invoice_id, description, quantity_hundredths,
+       unit_price_cents, vat_rate, line_total_cents, sort_order)
+     values (?, ?, 'Work', 100, 5000, 21, 5000, ?)`,
+  ).run(id, invoiceId, sortOrder)
+  return id
+}
+
+/** A draft with one item, then finalized via an UPDATE (as the app will do). */
+function finalInvoiceWithItem(): { invoiceId: string; itemId: string } {
+  const invoiceId = insertInvoice({ clientId: insertClient() })
+  const itemId = insertItem(invoiceId)
+  db.prepare(
+    `update invoices set status = 'final', invoice_number = '2026-001', client_snapshot = '{}',
+       finalized_at = ?, total_cents = 6050 where id = ?`,
+  ).run(now, invoiceId)
+  return { invoiceId, itemId }
 }
 
 function tableNames(d: DatabaseSync): string[] {
@@ -85,10 +120,35 @@ describe('data dir', () => {
     expect(fs.existsSync(path.join(tmpDir, 'data'))).toBe(true)
   })
 
-  it('defaults to ~/NeoInsent Invoicing', async () => {
+  it('defaults to ~/NeoInsent Invoicing', () => {
     delete process.env.NEOINSENT_DATA_DIR
-    const { defaultDataDir } = await import('./db')
     expect(defaultDataDir()).toBe(path.join(os.homedir(), 'NeoInsent Invoicing'))
+  })
+
+  it('resolves a relative NEOINSENT_DATA_DIR to an absolute path', () => {
+    const target = path.join(tmpDir, 'rel-data')
+    process.env.NEOINSENT_DATA_DIR = path.relative(process.cwd(), target)
+    expect(path.isAbsolute(process.env.NEOINSENT_DATA_DIR)).toBe(false)
+    expect(getDataDir()).toBe(target)
+    expect(fs.existsSync(target)).toBe(true)
+  })
+
+  it('creates the data dir owner-only (0700)', () => {
+    process.env.NEOINSENT_DATA_DIR = path.join(tmpDir, 'data')
+    getDataDir()
+    expect(fs.statSync(path.join(tmpDir, 'data')).mode & 0o777).toBe(0o700)
+  })
+
+  it.each([
+    ['Mobile Documents', 'com~apple~CloudDocs'],
+    ['CloudStorage', 'Dropbox'],
+  ])('refuses a data dir under ~/Library/%s', (cloudDir, sub) => {
+    const home = path.join(tmpDir, 'home')
+    vi.spyOn(os, 'homedir').mockReturnValue(home)
+    const target = path.join(home, 'Library', cloudDir, sub, 'NeoInsent')
+    process.env.NEOINSENT_DATA_DIR = target
+    expect(() => getDataDir()).toThrow(/iCloud\/cloud sync/)
+    expect(fs.existsSync(target)).toBe(false)
   })
 
   it('getInvoicesDir is <dataDir>/invoices and is created', () => {
@@ -127,12 +187,25 @@ describe('openDb schema', () => {
     expect(db.prepare('select id from clients').all()).toEqual([{ id: clientId }])
   })
 
-  it('enables WAL and foreign keys', () => {
+  it('uses rollback-journal DELETE mode, synchronous FULL and foreign keys', () => {
     expect((db.prepare('pragma journal_mode').get() as { journal_mode: string }).journal_mode).toBe(
-      'wal',
+      'delete',
     )
+    // 2 = FULL
+    expect((db.prepare('pragma synchronous').get() as { synchronous: number }).synchronous).toBe(2)
     expect((db.prepare('pragma foreign_keys').get() as { foreign_keys: number }).foreign_keys).toBe(
       1,
+    )
+    expect(
+      (db.prepare('pragma busy_timeout').get() as Record<string, number>)['timeout'],
+    ).toBe(5000)
+  })
+
+  it('refuses to open a database created by a newer app version', () => {
+    db.exec('pragma user_version = 99')
+    db.close()
+    expect(() => openDb(path.join(tmpDir, 'test.db'))).toThrow(
+      'This database was created by a newer version of the app',
     )
   })
 
@@ -154,6 +227,49 @@ describe('openDb schema', () => {
     expect(() => insertClient('nl')).toThrow(/CHECK/)
     expect(() => insertClient('NLD')).toThrow(/CHECK/)
     expect(() => insertClient('NL')).not.toThrow()
+  })
+
+  it('rejects a final invoice without finalized_at', () => {
+    expect(() =>
+      insertInvoice({
+        clientId: insertClient(),
+        status: 'final',
+        invoiceNumber: '2026-001',
+        snapshot: '{}',
+        finalizedAt: null,
+      }),
+    ).toThrow(/CHECK/)
+  })
+
+  it('rejects issue/due dates not in YYYY-MM-DD form', () => {
+    const clientId = insertClient()
+    expect(() => insertInvoice({ clientId, issueDate: '3-11-2026' })).toThrow(/CHECK/)
+    expect(() => insertInvoice({ clientId, dueDate: '2026-12-3' })).toThrow(/CHECK/)
+    expect(() => insertInvoice({ clientId, issueDate: '2026-11-03T00:00' })).toThrow(/CHECK/)
+    expect(() => insertInvoice({ clientId, issueDate: '2026-11-03' })).not.toThrow()
+  })
+
+  it('rejects two items with the same sort_order on one invoice', () => {
+    const invoiceId = insertInvoice({ clientId: insertClient() })
+    insertItem(invoiceId, 0)
+    expect(() => insertItem(invoiceId, 0)).toThrow(/UNIQUE/)
+    expect(() => insertItem(invoiceId, 1)).not.toThrow()
+    const other = insertInvoice({ clientId: insertClient() })
+    expect(() => insertItem(other, 0)).not.toThrow()
+  })
+
+  it('rejects a non-positive quantity or negative unit price', () => {
+    const invoiceId = insertInvoice({ clientId: insertClient() })
+    const insert = (qty: number, price: number) =>
+      db
+        .prepare(
+          `insert into invoice_items (id, invoice_id, description, quantity_hundredths,
+             unit_price_cents, vat_rate, line_total_cents) values (?, ?, 'X', ?, ?, 21, 0)`,
+        )
+        .run(crypto.randomUUID(), invoiceId, qty, price)
+    expect(() => insert(0, 100)).toThrow(/CHECK/)
+    expect(() => insert(100, -1)).toThrow(/CHECK/)
+    expect(() => insert(100, 0)).not.toThrow()
   })
 
   it('rejects a final invoice without client_snapshot or invoice_number', () => {
@@ -186,6 +302,132 @@ describe('openDb schema', () => {
   })
 })
 
+describe('final invoices are immutable', () => {
+  it('cannot be deleted', () => {
+    const { invoiceId } = finalInvoiceWithItem()
+    expect(() => db.prepare('delete from invoices where id = ?').run(invoiceId)).toThrow(
+      /final invoices cannot be deleted/,
+    )
+    expect(db.prepare('select id from invoices where id = ?').get(invoiceId)).toBeDefined()
+  })
+
+  it('rejects changes to totals, number, snapshot, dates and status', () => {
+    const { invoiceId } = finalInvoiceWithItem()
+    const attempts = [
+      `total_cents = 1`,
+      `invoice_number = '2026-999'`,
+      `client_snapshot = '{"x":1}'`,
+      `issue_date = '2026-01-01'`,
+      `status = 'draft'`,
+      `notes = 'changed'`,
+      `finalized_at = null`,
+    ]
+    for (const set of attempts) {
+      expect(() => db.prepare(`update invoices set ${set} where id = ?`).run(invoiceId), set).toThrow(
+        /final invoices cannot be changed/,
+      )
+    }
+  })
+
+  it('still allows paid, sent_at, pdf_path and updated_at to change', () => {
+    const { invoiceId } = finalInvoiceWithItem()
+    db.prepare(
+      `update invoices set paid = 1, sent_at = ?, pdf_path = 'invoices/2026/2026-001.pdf',
+         updated_at = ? where id = ?`,
+    ).run(now, now, invoiceId)
+    expect(
+      db.prepare('select paid, sent_at, pdf_path from invoices where id = ?').get(invoiceId),
+    ).toEqual({ paid: 1, sent_at: now, pdf_path: 'invoices/2026/2026-001.pdf' })
+  })
+
+  it('locks the items of a final invoice', () => {
+    const { invoiceId, itemId } = finalInvoiceWithItem()
+    expect(() => insertItem(invoiceId, 1)).toThrow(/items of a final invoice cannot be changed/)
+    expect(() =>
+      db.prepare(`update invoice_items set unit_price_cents = 1 where id = ?`).run(itemId),
+    ).toThrow(/items of a final invoice cannot be changed/)
+    expect(() => db.prepare(`delete from invoice_items where id = ?`).run(itemId)).toThrow(
+      /items of a final invoice cannot be changed/,
+    )
+  })
+
+  it('does not let an item move from a draft into a final invoice', () => {
+    const { invoiceId: finalId } = finalInvoiceWithItem()
+    const draftId = insertInvoice({ clientId: insertClient() })
+    const itemId = insertItem(draftId)
+    expect(() =>
+      db
+        .prepare(`update invoice_items set invoice_id = ?, sort_order = 5 where id = ?`)
+        .run(finalId, itemId),
+    ).toThrow(/items of a final invoice cannot be changed/)
+  })
+
+  it('leaves draft invoices and their items editable', () => {
+    const draftId = insertInvoice({ clientId: insertClient() })
+    const itemId = insertItem(draftId)
+    insertItem(draftId, 1)
+    db.prepare(`update invoice_items set unit_price_cents = 1 where id = ?`).run(itemId)
+    db.prepare(`delete from invoice_items where id = ?`).run(itemId)
+    db.prepare(`update invoices set total_cents = 42, notes = 'x' where id = ?`).run(draftId)
+    db.prepare('delete from invoices where id = ?').run(draftId)
+    expect(db.prepare('select * from invoice_items').all()).toEqual([])
+  })
+})
+
+describe('backups', () => {
+  it('backupDb writes a copy that opens and contains the rows', () => {
+    const clientId = insertClient()
+    const dest = path.join(tmpDir, 'copy.db')
+    backupDb(db, dest)
+    const copy = openDb(dest)
+    try {
+      expect(copy.prepare('select id from clients').all()).toEqual([{ id: clientId }])
+    } finally {
+      copy.close()
+    }
+  })
+
+  it('backupDb refuses to overwrite an existing file', () => {
+    const dest = path.join(tmpDir, 'copy.db')
+    fs.writeFileSync(dest, 'x')
+    expect(() => backupDb(db, dest)).toThrow(/exists/)
+  })
+
+  it('rotateBackups writes today\'s backup and keeps only the newest N', () => {
+    const dataDir = path.join(tmpDir, 'data')
+    const backupsDir = path.join(dataDir, 'backups')
+    fs.mkdirSync(backupsDir, { recursive: true })
+    for (const d of ['2026-01-01', '2026-02-01', '2026-03-01', '2026-04-01']) {
+      fs.writeFileSync(path.join(backupsDir, `neoinsent-${d}.db`), 'old')
+    }
+    fs.writeFileSync(path.join(backupsDir, 'unrelated.txt'), 'keep me')
+    const clientId = insertClient()
+
+    const written = rotateBackups(dataDir, 3, db)
+
+    const d = new Date()
+    const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    expect(written).toBe(path.join(backupsDir, `neoinsent-${today}.db`))
+    expect(fs.readdirSync(backupsDir).sort()).toEqual([
+      'neoinsent-2026-03-01.db',
+      'neoinsent-2026-04-01.db',
+      `neoinsent-${today}.db`,
+      'unrelated.txt',
+    ])
+    const copy = openDb(written)
+    try {
+      expect(copy.prepare('select id from clients').all()).toEqual([{ id: clientId }])
+    } finally {
+      copy.close()
+    }
+
+    // Second call the same day keeps the existing backup untouched.
+    const before = fs.statSync(written).mtimeMs
+    expect(rotateBackups(dataDir, 3, db)).toBe(written)
+    expect(fs.statSync(written).mtimeMs).toBe(before)
+  })
+})
+
 describe('withTransaction', () => {
   it('commits on success', () => {
     const result = withTransaction(db, () => insertClient())
@@ -202,6 +444,22 @@ describe('withTransaction', () => {
     ).toThrow('boom')
     expect(db.prepare('select id from clients where id = ?').get(id)).toBeUndefined()
     expect(db.isTransaction).toBe(false)
+  })
+
+  it('rejects an async callback and rolls back what it wrote', () => {
+    let id = ''
+    expect(() =>
+      withTransaction(
+        db,
+        // @ts-expect-error — a Promise-returning callback is a type error
+        async () => {
+          id = insertClient()
+        },
+      ),
+    ).toThrow('withTransaction callback must be synchronous')
+    expect(id).not.toBe('')
+    expect(db.isTransaction).toBe(false)
+    expect(db.prepare('select id from clients where id = ?').get(id)).toBeUndefined()
   })
 })
 
@@ -231,10 +489,29 @@ describe('nextInvoiceNumber', () => {
   })
 })
 
-describe('cents helpers', () => {
+describe('units helpers', () => {
   it('converts without float drift', () => {
     expect(toCents(19.99)).toBe(1999)
     expect(toCents(0.1 + 0.2)).toBe(30)
     expect(fromCents(1999)).toBe(19.99)
+  })
+
+  it('converts quantities to hundredths', () => {
+    expect(toHundredths(1.5)).toBe(150)
+    expect(toHundredths(0.25)).toBe(25)
+    expect(toHundredths(2)).toBe(200)
+  })
+
+  it('normalizes -0 to 0', () => {
+    expect(Object.is(toCents(-0), 0)).toBe(true)
+    expect(Object.is(toCents(-0.001), 0)).toBe(true)
+    expect(Object.is(toHundredths(-0), 0)).toBe(true)
+  })
+
+  it('throws when the result is not a safe integer', () => {
+    expect(() => toCents(Number.NaN)).toThrow()
+    expect(() => toCents(Number.POSITIVE_INFINITY)).toThrow()
+    expect(() => toCents(Number.MAX_SAFE_INTEGER)).toThrow()
+    expect(() => toHundredths(Number.NaN)).toThrow()
   })
 })
