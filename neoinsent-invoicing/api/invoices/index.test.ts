@@ -35,6 +35,7 @@ const nlClient = {
   vat_number: 'NL123456789B01',
   kvk_number: null,
   created_at: '2026-01-01T00:00:00Z',
+  updated_at: null,
 }
 
 const validBody = {

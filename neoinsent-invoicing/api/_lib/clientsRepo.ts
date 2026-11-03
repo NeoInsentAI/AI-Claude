@@ -1,4 +1,5 @@
-import { getSupabaseAdmin } from '../../src/lib/supabaseAdmin'
+import { randomUUID } from 'node:crypto'
+import { getDb } from './db'
 
 export interface Client {
   id: string
@@ -12,46 +13,76 @@ export interface Client {
   vat_number: string | null
   kvk_number: string | null
   created_at: string
+  updated_at: string | null
 }
 
-export type NewClient = Omit<Client, 'id' | 'created_at'>
+export type NewClient = Omit<Client, 'id' | 'created_at' | 'updated_at'>
+
+// The database work is synchronous (node:sqlite); the functions stay async so callers can await
+// them the same way whatever the storage.
+
+const COLUMNS =
+  'id, name, contact_person, email, address_line, postal_code, city, country, vat_number, kvk_number, created_at, updated_at'
+
+function selectById(id: string): Client | null {
+  const row = getDb().prepare(`select ${COLUMNS} from clients where id = ?`).get(id)
+  return (row as Client | undefined) ?? null
+}
 
 export async function listClients(): Promise<Client[]> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('clients')
-    .select('*')
-    .order('name', { ascending: true })
-  if (error) throw new Error(error.message)
-  return data as Client[]
-}
-
-export async function createClient(input: NewClient): Promise<Client> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('clients')
-    .insert(input)
-    .select()
-    .single()
-  if (error) throw new Error(error.message)
-  return data as Client
-}
-
-export async function updateClient(id: string, input: NewClient): Promise<Client | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('clients')
-    .update(input)
-    .eq('id', id)
-    .select()
-    .maybeSingle()
-  if (error) throw new Error(error.message)
-  return (data as Client | null) ?? null
+  return getDb()
+    .prepare(`select ${COLUMNS} from clients order by name collate nocase, created_at`)
+    .all() as unknown as Client[]
 }
 
 export async function getClientById(id: string): Promise<Client | null> {
-  const { data, error } = await getSupabaseAdmin()
-    .from('clients')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
-  if (error) throw new Error(error.message)
-  return (data as Client | null) ?? null
+  return selectById(id)
+}
+
+export async function createClient(input: NewClient): Promise<Client> {
+  const id = randomUUID()
+  getDb()
+    .prepare(
+      `insert into clients (id, name, contact_person, email, address_line, postal_code, city,
+                            country, vat_number, kvk_number, created_at)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      input.name,
+      input.contact_person,
+      input.email,
+      input.address_line,
+      input.postal_code,
+      input.city,
+      input.country,
+      input.vat_number,
+      input.kvk_number,
+      new Date().toISOString(),
+    )
+  return selectById(id) as Client
+}
+
+export async function updateClient(id: string, input: NewClient): Promise<Client | null> {
+  const result = getDb()
+    .prepare(
+      `update clients set name = ?, contact_person = ?, email = ?, address_line = ?,
+                          postal_code = ?, city = ?, country = ?, vat_number = ?, kvk_number = ?,
+                          updated_at = ?
+       where id = ?`,
+    )
+    .run(
+      input.name,
+      input.contact_person,
+      input.email,
+      input.address_line,
+      input.postal_code,
+      input.city,
+      input.country,
+      input.vat_number,
+      input.kvk_number,
+      new Date().toISOString(),
+      id,
+    )
+  return result.changes === 0 ? null : selectById(id)
 }

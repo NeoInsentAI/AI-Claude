@@ -11,8 +11,8 @@ const MAX_ITEMS = 100
 const ALLOWED_VAT_RATES = [0, 9, 21]
 const MAX_DESCRIPTION_LENGTH = 500
 const MAX_NOTES_LENGTH = 2000
-// Money/quantity columns are numeric(12,2). Postgres would silently round a
-// third decimal on insert while line_total was computed from the unrounded
+// Money/quantities are stored as integer cents/hundredths, which would silently
+// round a third decimal while line_total was computed from the unrounded
 // value, so the stored line wouldn't add up. Reject instead.
 const MAX_AMOUNT = 1_000_000
 
