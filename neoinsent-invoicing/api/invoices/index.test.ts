@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import handler from './index'
 import * as invoicesRepo from '../_lib/invoicesRepo'
-import * as requireSessionModule from '../_lib/requireSession'
 import * as clientsRepo from '../_lib/clientsRepo'
 
-vi.mock('../_lib/requireSession')
 vi.mock('../_lib/invoicesRepo')
 vi.mock('../_lib/clientsRepo')
 
@@ -50,22 +48,7 @@ const validBody = {
 describe('/api/invoices', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(true)
     vi.mocked(clientsRepo.getClientById).mockResolvedValue(nlClient)
-  })
-
-  it('GET does not list invoices when not authenticated', async () => {
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(false)
-    const res = createMockRes()
-    await handler({ method: 'GET', headers: {}, query: {} } as any, res)
-    expect(invoicesRepo.listInvoices).not.toHaveBeenCalled()
-  })
-
-  it('POST does not create an invoice when not authenticated', async () => {
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(false)
-    const res = createMockRes()
-    await handler({ method: 'POST', headers: {}, body: { ...validBody } } as any, res)
-    expect(invoicesRepo.createDraftInvoice).not.toHaveBeenCalled()
   })
 
   it('GET without filters lists all invoices', async () => {

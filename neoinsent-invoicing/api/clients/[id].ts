@@ -1,21 +1,18 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireSession } from '../_lib/requireSession'
+import type { Request, Response } from 'express'
 import { updateClient } from '../_lib/clientsRepo'
 import { normalizeClientInput } from '../_lib/normalizeClientInput'
 import { isUuid } from '../_lib/uuid'
 
 const DATABASE_ERROR = 'Database error — please try again'
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!requireSession(req, res)) return
-
-  const id = req.query?.id
+export default async function handler(req: Request, res: Response) {
+  const id = req.params?.id
   if (typeof id !== 'string' || id === '') {
     res.status(400).json({ error: 'Invalid client id' })
     return
   }
 
-  // Postgres rejects a non-UUID id with an error; treat it as an unknown client.
+  // Ids are UUIDs; anything else can't match a client, so skip the database.
   if (!isUuid(id)) {
     res.status(404).json({ error: 'Client not found' })
     return

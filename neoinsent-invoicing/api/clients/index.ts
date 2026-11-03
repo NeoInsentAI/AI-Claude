@@ -1,13 +1,10 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireSession } from '../_lib/requireSession'
+import type { Request, Response } from 'express'
 import { createClient, listClients } from '../_lib/clientsRepo'
 import { normalizeClientInput } from '../_lib/normalizeClientInput'
 
 const DATABASE_ERROR = 'Database error — please try again'
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!requireSession(req, res)) return
-
+export default async function handler(req: Request, res: Response) {
   if (req.method === 'GET') {
     try {
       const clients = await listClients()

@@ -1,5 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { requireSession } from '../_lib/requireSession'
+import type { Request, Response } from 'express'
 import { getClientById } from '../_lib/clientsRepo'
 import { createDraftInvoice, listInvoices, type ListInvoicesFilter } from '../_lib/invoicesRepo'
 import { validateDraftInvoice } from '../_lib/validateDraftInvoice'
@@ -25,7 +24,7 @@ function vatMismatchMessage(expected: VatTreatment): string {
 type FilterResult = { ok: true; value: ListInvoicesFilter } | { ok: false; error: string }
 
 // ?year=YYYY narrows to that year; adding &quarter=1..4 narrows to that quarter.
-function parseListFilter(query: VercelRequest['query']): FilterResult {
+function parseListFilter(query: Request['query']): FilterResult {
   const { year, quarter } = query ?? {}
   if (year === undefined) {
     if (quarter !== undefined) return { ok: false, error: 'A quarter filter needs a year' }
@@ -48,9 +47,7 @@ function parseListFilter(query: VercelRequest['query']): FilterResult {
   return { ok: true, value: quarterDateRange(yearNumber, q) }
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (!requireSession(req, res)) return
-
+export default async function handler(req: Request, res: Response) {
   if (req.method === 'GET') {
     const filter = parseListFilter(req.query)
     if (!filter.ok) {

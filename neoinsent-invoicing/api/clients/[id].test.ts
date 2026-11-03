@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import handler from './[id]'
 import * as clientsRepo from '../_lib/clientsRepo'
-import * as requireSessionModule from '../_lib/requireSession'
 
-vi.mock('../_lib/requireSession')
 vi.mock('../_lib/clientsRepo')
 
 function createMockRes() {
@@ -31,25 +29,17 @@ const completeInput = {
 }
 
 function patchReq(body: unknown, id: unknown = CLIENT_ID) {
-  return { method: 'PATCH', headers: {}, query: { id }, body } as any
+  return { method: 'PATCH', headers: {}, params: { id }, body } as any
 }
 
 describe('/api/clients/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(true)
-  })
-
-  it('does not update when not authenticated', async () => {
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(false)
-    const res = createMockRes()
-    await handler(patchReq({ ...completeInput }), res)
-    expect(clientsRepo.updateClient).not.toHaveBeenCalled()
   })
 
   it('rejects non-PATCH methods with 405', async () => {
     const res = createMockRes()
-    await handler({ method: 'GET', headers: {}, query: { id: CLIENT_ID } } as any, res)
+    await handler({ method: 'GET', headers: {}, params: { id: CLIENT_ID } } as any, res)
     expect(res.statusCode).toBe(405)
     expect(clientsRepo.updateClient).not.toHaveBeenCalled()
   })

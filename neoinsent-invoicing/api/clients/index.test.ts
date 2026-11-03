@@ -1,9 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import handler from './index'
 import * as clientsRepo from '../_lib/clientsRepo'
-import * as requireSessionModule from '../_lib/requireSession'
 
-vi.mock('../_lib/requireSession')
 vi.mock('../_lib/clientsRepo')
 
 function createMockRes() {
@@ -31,21 +29,6 @@ const completeInput = {
 describe('/api/clients', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(true)
-  })
-
-  it('short-circuits when not authenticated', async () => {
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(false)
-    const res = createMockRes()
-    await handler({ method: 'GET', headers: {} } as any, res)
-    expect(clientsRepo.listClients).not.toHaveBeenCalled()
-  })
-
-  it('does not create a client when not authenticated', async () => {
-    vi.mocked(requireSessionModule.requireSession).mockReturnValue(false)
-    const res = createMockRes()
-    await handler({ method: 'POST', headers: {}, body: { ...completeInput } } as any, res)
-    expect(clientsRepo.createClient).not.toHaveBeenCalled()
   })
 
   it('GET lists clients', async () => {
