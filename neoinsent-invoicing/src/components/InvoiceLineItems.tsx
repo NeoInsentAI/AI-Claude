@@ -1,50 +1,61 @@
 import { computeInvoiceTotals, computeLine, type InvoiceLineInput, type LineComputed } from '../lib/invoiceMath'
+import { useId } from 'react'
 import { formatCurrency } from '../lib/format'
+import { DecimalInput } from './DecimalInput'
 
 export interface LineItemRow extends InvoiceLineInput {
   description: string
+  /** Stable React key for rows added in the editor (keeps typed text with its row on removal). */
+  key?: string
 }
 
 interface InvoiceLineItemsProps {
   items: LineItemRow[]
   onChange: (items: LineItemRow[]) => void
   defaultVatRate: number
-  /** Reverse-charge invoices: the VAT rate is fixed at 0% (the parent sets the rates to 0). */
+  /** Reverse-charge invoices: every line is shown, computed and written at 0% VAT. */
   vatLocked?: boolean
 }
 
 /** The only rates the server accepts. */
 const VAT_RATES = [21, 9, 0] as const
 
-/** An empty number field counts as 0 rather than NaN; the server validates the real values. */
-function toNumber(value: string): number {
-  return value.trim() === '' ? 0 : Number(value)
-}
-
-/** Shows a non-finite number as an empty field instead of passing NaN to React. */
-function inputValue(value: number): number | '' {
-  return Number.isFinite(value) ? value : ''
-}
-
-/** `computeLine` throws on non-finite input; such a line shows "—" and is left out of the totals. */
+/**
+ * `computeLine` throws on non-finite input, and huge inputs can overflow to Infinity; such a line
+ * shows "—" and is left out of the totals.
+ */
 function tryComputeLine(item: LineItemRow): LineComputed | null {
   try {
-    return computeLine(item)
+    const line = computeLine(item)
+    return Number.isFinite(line.lineTotal) ? line : null
   } catch {
     return null
   }
 }
 
 export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = false }: InvoiceLineItemsProps) {
-  const computed = items.map(tryComputeLine)
-  const { subtotal, vatAmount, total } = computeInvoiceTotals(items.filter((_, i) => computed[i] !== null))
+  const noteId = useId()
+  const effective = items.map((item) => (vatLocked ? { ...item, vatRate: 0 } : item))
+  const computed = effective.map(tryComputeLine)
+  const { subtotal, vatAmount, total } = computeInvoiceTotals(effective.filter((_, i) => computed[i] !== null))
 
   function updateItem(index: number, patch: Partial<LineItemRow>) {
-    onChange(items.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+    onChange(
+      items.map((item, i) => (i === index ? { ...item, ...patch, ...(vatLocked ? { vatRate: 0 } : {}) } : item)),
+    )
   }
 
   function addItem() {
-    onChange([...items, { description: '', quantity: 1, unitPrice: 0, vatRate: defaultVatRate }])
+    onChange([
+      ...items,
+      {
+        description: '',
+        quantity: 1,
+        unitPrice: 0,
+        vatRate: vatLocked ? 0 : defaultVatRate,
+        key: crypto.randomUUID(),
+      },
+    ])
   }
 
   function removeItem(index: number) {
@@ -55,6 +66,7 @@ export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = 
     <div>
       <div style={{ overflowX: 'auto' }}>
         <table>
+          <caption className="visually-hidden">Line items</caption>
           <thead>
             <tr>
               <th>Description</th>
@@ -62,7 +74,9 @@ export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = 
               <th>Unit price</th>
               <th>VAT %</th>
               <th>Line total</th>
-              <th />
+              <th>
+                <span className="visually-hidden">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -70,7 +84,7 @@ export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = 
               const n = index + 1
               const line = computed[index]
               return (
-                <tr key={index}>
+                <tr key={item.key ?? index}>
                   <td>
                     <input
                       aria-label={`Description ${n}`}
@@ -79,25 +93,17 @@ export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = 
                     />
                   </td>
                   <td>
-                    <input
+                    <DecimalInput
                       aria-label={`Quantity ${n}`}
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      inputMode="decimal"
-                      value={inputValue(item.quantity)}
-                      onChange={(e) => updateItem(index, { quantity: toNumber(e.target.value) })}
+                      value={item.quantity}
+                      onChange={(quantity) => updateItem(index, { quantity })}
                     />
                   </td>
                   <td>
-                    <input
+                    <DecimalInput
                       aria-label={`Unit price ${n}`}
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      inputMode="decimal"
-                      value={inputValue(item.unitPrice)}
-                      onChange={(e) => updateItem(index, { unitPrice: toNumber(e.target.value) })}
+                      value={item.unitPrice}
+                      onChange={(unitPrice) => updateItem(index, { unitPrice })}
                     />
                   </td>
                   <td>
@@ -105,6 +111,7 @@ export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = 
                       aria-label={`VAT rate ${n}`}
                       value={vatLocked ? 0 : item.vatRate}
                       disabled={vatLocked}
+                      aria-describedby={vatLocked ? noteId : undefined}
                       onChange={(e) => updateItem(index, { vatRate: Number(e.target.value) })}
                     >
                       {VAT_RATES.map((rate) => (
@@ -133,6 +140,7 @@ export function InvoiceLineItems({ items, onChange, defaultVatRate, vatLocked = 
           </tbody>
         </table>
       </div>
+      {vatLocked && <p id={noteId}>Reverse charge — VAT 0% (BTW verlegd)</p>}
       <button type="button" className="btn" onClick={addItem}>
         + Add line
       </button>

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { clientForInvoice, type ClientDetails } from './clientForInvoice'
 
 const LIVE: ClientDetails = {
@@ -31,7 +31,24 @@ describe('clientForInvoice', () => {
     expect(result?.email).toBe('old@acme.test')
   })
 
-  it('falls back to the live client for a final invoice without a snapshot', () => {
-    expect(clientForInvoice({ status: 'final', client: LIVE, client_snapshot: null })).toBe(LIVE)
+  it('falls back to the live client for a final invoice without a snapshot, with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      expect(clientForInvoice({ status: 'final', client: LIVE, client_snapshot: null })).toBe(LIVE)
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(String(warn.mock.calls[0][0])).toMatch(/snapshot/i)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('does not warn for a draft without a snapshot', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      clientForInvoice({ status: 'draft', client: LIVE, client_snapshot: null })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
   })
 })

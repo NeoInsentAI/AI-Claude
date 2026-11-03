@@ -26,6 +26,10 @@ export interface InvoiceClientSource<C extends ClientDetails = ClientDetails> {
 export function clientForInvoice<C extends ClientDetails>(
   invoice: InvoiceClientSource<C>,
 ): ClientDetails | null {
-  if (invoice.status === 'final' && invoice.client_snapshot) return invoice.client_snapshot
+  if (invoice.status === 'final') {
+    if (invoice.client_snapshot) return invoice.client_snapshot
+    // Data-integrity signal: every final invoice should carry the snapshot taken at finalize.
+    console.warn('clientForInvoice: final invoice has no client_snapshot; falling back to the live client')
+  }
   return invoice.client
 }
