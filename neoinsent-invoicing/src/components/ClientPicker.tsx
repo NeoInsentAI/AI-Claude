@@ -4,8 +4,14 @@ import { apiFetch } from '../lib/apiClient'
 export interface ClientSummary {
   id: string
   name: string
+  email: string
+  address_line: string
+  postal_code: string
+  city: string
   country: string
   vat_number: string | null
+  kvk_number: string | null
+  contact_person: string | null
 }
 
 interface Props {
@@ -22,9 +28,32 @@ const EMPTY_FORM = {
   country: '',
   vat_number: '',
   kvk_number: '',
+  // No input for this yet; kept in state so editing a client does not wipe it.
+  contact_person: '',
 }
 
 type FormState = typeof EMPTY_FORM
+
+// 'create' adds a new client; a client id means that client is being edited.
+type FormMode = 'create' | { editingId: string }
+
+function formFromClient(client: ClientSummary): FormState {
+  return {
+    name: client.name,
+    email: client.email,
+    address_line: client.address_line,
+    postal_code: client.postal_code,
+    city: client.city,
+    country: client.country,
+    vat_number: client.vat_number ?? '',
+    kvk_number: client.kvk_number ?? '',
+    contact_person: client.contact_person ?? '',
+  }
+}
+
+function sortByName(clients: ClientSummary[]): ClientSummary[] {
+  return [...clients].sort((a, b) => a.name.localeCompare(b.name))
+}
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Request failed'
@@ -33,7 +62,7 @@ function errorMessage(err: unknown): string {
 export function ClientPicker({ value, onChange }: Props) {
   const [clients, setClients] = useState<ClientSummary[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [showForm, setShowForm] = useState(false)
+  const [formMode, setFormMode] = useState<FormMode | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -61,34 +90,64 @@ export function ClientPicker({ value, onChange }: Props) {
     if (client) onChange(client)
   }
 
+  function openCreateForm() {
+    setForm(EMPTY_FORM)
+    setSaveError(null)
+    setFormMode('create')
+  }
+
+  function openEditForm(client: ClientSummary) {
+    setForm(formFromClient(client))
+    setSaveError(null)
+    setFormMode({ editingId: client.id })
+  }
+
+  function payloadFromForm() {
+    return JSON.stringify({
+      ...form,
+      vat_number: form.vat_number || null,
+      kvk_number: form.kvk_number || null,
+      contact_person: form.contact_person || null,
+    })
+  }
+
   async function handleSave() {
+    if (formMode === null) return
     setSaveError(null)
     setSaving(true)
-    let created: ClientSummary | null = null
+    let saved: ClientSummary | null = null
     try {
-      const { client } = await apiFetch<{ client: ClientSummary }>('/api/clients', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...form,
-          vat_number: form.vat_number || null,
-          kvk_number: form.kvk_number || null,
-        }),
-      })
-      created = client
+      const { client } =
+        formMode === 'create'
+          ? await apiFetch<{ client: ClientSummary }>('/api/clients', {
+              method: 'POST',
+              body: payloadFromForm(),
+            })
+          : await apiFetch<{ client: ClientSummary }>(
+              `/api/clients/${encodeURIComponent(formMode.editingId)}`,
+              { method: 'PATCH', body: payloadFromForm() },
+            )
+      saved = client
     } catch (err) {
       setSaveError(errorMessage(err))
       return
     } finally {
       setSaving(false)
     }
-    if (created) {
-      const newClient = created
-      setClients((prev) => [...prev, newClient].sort((a, b) => a.name.localeCompare(b.name)))
-      setShowForm(false)
+    if (saved) {
+      const savedClient = saved
+      setClients((prev) =>
+        sortByName([...prev.filter((c) => c.id !== savedClient.id), savedClient]),
+      )
+      setFormMode(null)
       setForm(EMPTY_FORM)
-      onChange(newClient)
+      onChange(savedClient)
     }
   }
+
+  const isCreating = formMode === 'create'
+  const isEditing = formMode !== null && formMode !== 'create'
+  const isEditingSelected = isEditing && value !== null && formMode.editingId === value.id
 
   return (
     <div>
@@ -113,13 +172,22 @@ export function ClientPicker({ value, onChange }: Props) {
         </p>
       )}
 
-      {!showForm && (
-        <button type="button" className="btn" onClick={() => setShowForm(true)}>
+      {!isCreating && (
+        <button type="button" className="btn" onClick={openCreateForm}>
           + New client
         </button>
       )}
+      {value && !isEditingSelected && (
+        <button
+          type="button"
+          className="btn"
+          onClick={() => openEditForm(clients.find((c) => c.id === value.id) ?? value)}
+        >
+          Edit client
+        </button>
+      )}
 
-      {showForm && (
+      {formMode !== null && (
         <div className="card">
           <label htmlFor="new-client-name">Name</label>
           <input
@@ -182,7 +250,7 @@ export function ClientPicker({ value, onChange }: Props) {
             onClick={handleSave}
             disabled={saving}
           >
-            Save client
+            {isEditing ? 'Save changes' : 'Save client'}
           </button>
         </div>
       )}

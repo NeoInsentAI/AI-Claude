@@ -34,3 +34,14 @@ export async function createClient(input: NewClient): Promise<Client> {
   if (error) throw new Error(error.message)
   return data as Client
 }
+
+export async function updateClient(id: string, input: NewClient): Promise<Client | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('clients')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data as Client | null) ?? null
+}
