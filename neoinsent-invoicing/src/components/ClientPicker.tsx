@@ -94,11 +94,7 @@ export function ClientPicker({ value, onChange }: Props) {
     if (!client) return
     // An open edit form belongs to the previously selected client; saving it
     // later would switch the selection back, so close it.
-    if (formMode !== null && formMode !== 'create') {
-      setFormMode(null)
-      setForm(EMPTY_FORM)
-      setSaveError(null)
-    }
+    if (formMode !== null && formMode !== 'create') closeForm()
     onChange(client)
   }
 
@@ -112,6 +108,12 @@ export function ClientPicker({ value, onChange }: Props) {
     setForm(formFromClient(client))
     setSaveError(null)
     setFormMode({ editingId: client.id })
+  }
+
+  function closeForm() {
+    setFormMode(null)
+    setForm(EMPTY_FORM)
+    setSaveError(null)
   }
 
   function payloadFromForm() {
@@ -261,6 +263,9 @@ export function ClientPicker({ value, onChange }: Props) {
             disabled={saving}
           >
             {isEditing ? 'Save changes' : 'Save client'}
+          </button>
+          <button type="button" className="btn" onClick={closeForm} disabled={saving}>
+            Cancel
           </button>
         </div>
       )}

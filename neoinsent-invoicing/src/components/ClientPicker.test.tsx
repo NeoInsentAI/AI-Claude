@@ -275,6 +275,32 @@ describe('ClientPicker', () => {
     expect(screen.getByLabelText('Email')).toHaveValue('broken')
   })
 
+  it('cancel closes the form, clears the save error, and reopens empty', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ clients: CLIENTS }))
+      .mockResolvedValueOnce(jsonResponse({ error: 'VAT number looks invalid' }, 400))
+    vi.stubGlobal('fetch', fetchMock)
+    const onChange = vi.fn()
+    render(<ClientPicker value={null} onChange={onChange} />)
+    await screen.findByText('Acme BV')
+
+    await fillNewClientForm()
+    await userEvent.click(screen.getByText('Save client'))
+    expect(await screen.findByRole('alert')).toHaveTextContent('VAT number looks invalid')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(onChange).not.toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+
+    await userEvent.click(screen.getByText('+ New client'))
+    expect(screen.getByLabelText('Name')).toHaveValue('')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('shows an error when the client list fails to load', async () => {
     vi.stubGlobal(
       'fetch',
