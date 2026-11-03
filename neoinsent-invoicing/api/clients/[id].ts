@@ -2,9 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { requireSession } from '../_lib/requireSession'
 import { updateClient } from '../_lib/clientsRepo'
 import { normalizeClientInput } from '../_lib/normalizeClientInput'
+import { isUuid } from '../_lib/uuid'
 
 const DATABASE_ERROR = 'Database error — please try again'
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireSession(req, res)) return
@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Postgres rejects a non-UUID id with an error; treat it as an unknown client.
-  if (!UUID_PATTERN.test(id)) {
+  if (!isUuid(id)) {
     res.status(404).json({ error: 'Client not found' })
     return
   }

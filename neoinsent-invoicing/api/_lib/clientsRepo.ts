@@ -45,3 +45,13 @@ export async function updateClient(id: string, input: NewClient): Promise<Client
   if (error) throw new Error(error.message)
   return (data as Client | null) ?? null
 }
+
+export async function getClientById(id: string): Promise<Client | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('clients')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data as Client | null) ?? null
+}

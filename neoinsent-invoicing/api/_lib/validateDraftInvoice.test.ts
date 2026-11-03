@@ -166,4 +166,55 @@ describe('validateDraftInvoice', () => {
     )
     expect(ok.ok).toBe(true)
   })
+
+  it('rejects a quantity or unit price with more than 2 decimals', () => {
+    for (const quantity of [1.005, 0.125]) {
+      expectError(
+        validBody({ items: [item(), item({ quantity })] }),
+        /^Line 2: quantity can have at most 2 decimals$/,
+      )
+    }
+    for (const unit_price of [1.005, 0.125]) {
+      expectError(
+        validBody({ items: [item({ unit_price })] }),
+        /^Line 1: unit price can have at most 2 decimals$/,
+      )
+    }
+  })
+
+  it('accepts 2-decimal amounts despite floating-point noise', () => {
+    // 1.1 * 100 === 110.00000000000001 in binary floating point.
+    for (const value of [1.1, 19.99, 0.01, 1_000_000]) {
+      const result = validateDraftInvoice(
+        validBody({ items: [item({ quantity: value, unit_price: value })] }),
+      )
+      expect(result.ok).toBe(true)
+    }
+  })
+
+  it('rejects a quantity or unit price above 1,000,000', () => {
+    expectError(
+      validBody({ items: [item({ quantity: 1_000_001 })] }),
+      /^Line 1: quantity is too large$/,
+    )
+    expectError(
+      validBody({ items: [item({ unit_price: 1_000_001 })] }),
+      /^Line 1: unit price is too large$/,
+    )
+  })
+
+  it('caps the description at 500 characters after trimming', () => {
+    expect(
+      validateDraftInvoice(validBody({ items: [item({ description: ` ${'a'.repeat(500)} ` })] })).ok,
+    ).toBe(true)
+    expectError(
+      validBody({ items: [item({ description: 'a'.repeat(501) })] }),
+      /^Line 1: description can be at most 500 characters$/,
+    )
+  })
+
+  it('caps notes at 2000 characters after trimming', () => {
+    expect(validateDraftInvoice(validBody({ notes: ` ${'a'.repeat(2000)} ` })).ok).toBe(true)
+    expectError(validBody({ notes: 'a'.repeat(2001) }), /^Notes can be at most 2000 characters$/)
+  })
 })

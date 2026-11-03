@@ -1,14 +1,23 @@
 import { isInvoiceVatTreatment, type VatTreatment } from '../../src/lib/vat'
 import type { DraftInvoiceInput, InvoiceItemInput } from './invoicesRepo'
+import { isUuid } from './uuid'
 
 export type ValidateDraftInvoiceResult =
   | { ok: true; value: DraftInvoiceInput }
   | { ok: false; error: string }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 const MAX_ITEMS = 100
 const ALLOWED_VAT_RATES = [0, 9, 21]
+const MAX_DESCRIPTION_LENGTH = 500
+const MAX_NOTES_LENGTH = 2000
+// Money/quantity columns are numeric(12,2). Postgres would silently round a
+// third decimal on insert while line_total was computed from the unrounded
+// value, so the stored line wouldn't add up. Reject instead.
+const MAX_AMOUNT = 1_000_000
+
+// Tolerance absorbs binary floating point (1.1 * 100 === 110.00000000000001).
+const hasAtMost2Decimals = (n: number) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -41,12 +50,30 @@ function validateItem(
 
   const description = typeof item.description === 'string' ? item.description.trim() : ''
   if (description === '') return { ok: false, error: `Line ${line}: description is required` }
+  if (description.length > MAX_DESCRIPTION_LENGTH) {
+    return {
+      ok: false,
+      error: `Line ${line}: description can be at most ${MAX_DESCRIPTION_LENGTH} characters`,
+    }
+  }
 
   if (!isFiniteNumber(item.quantity) || item.quantity <= 0) {
     return { ok: false, error: `Line ${line}: quantity must be a positive number` }
   }
+  if (!hasAtMost2Decimals(item.quantity)) {
+    return { ok: false, error: `Line ${line}: quantity can have at most 2 decimals` }
+  }
+  if (item.quantity > MAX_AMOUNT) {
+    return { ok: false, error: `Line ${line}: quantity is too large` }
+  }
   if (!isFiniteNumber(item.unit_price) || item.unit_price < 0) {
     return { ok: false, error: `Line ${line}: unit price must be zero or more` }
+  }
+  if (!hasAtMost2Decimals(item.unit_price)) {
+    return { ok: false, error: `Line ${line}: unit price can have at most 2 decimals` }
+  }
+  if (item.unit_price > MAX_AMOUNT) {
+    return { ok: false, error: `Line ${line}: unit price is too large` }
   }
   if (typeof item.vat_rate !== 'number' || !ALLOWED_VAT_RATES.includes(item.vat_rate)) {
     return { ok: false, error: `Line ${line}: VAT rate must be 0, 9 or 21` }
@@ -68,7 +95,7 @@ export function validateDraftInvoice(body: unknown): ValidateDraftInvoiceResult 
   const input = asRecord(body) ?? {}
 
   const clientId = input.client_id
-  if (typeof clientId !== 'string' || !UUID_PATTERN.test(clientId)) {
+  if (!isUuid(clientId)) {
     return { ok: false, error: 'A valid client is required' }
   }
 
@@ -98,6 +125,9 @@ export function validateDraftInvoice(body: unknown): ValidateDraftInvoiceResult 
   }
 
   const notes = typeof input.notes === 'string' && input.notes.trim() !== '' ? input.notes.trim() : null
+  if (notes !== null && notes.length > MAX_NOTES_LENGTH) {
+    return { ok: false, error: `Notes can be at most ${MAX_NOTES_LENGTH} characters` }
+  }
 
   const rawItems = input.items
   if (!Array.isArray(rawItems) || rawItems.length === 0) {

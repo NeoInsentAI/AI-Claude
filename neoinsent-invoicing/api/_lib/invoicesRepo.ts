@@ -94,6 +94,8 @@ export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<Inv
       'id, invoice_number, client_id, status, vat_treatment, issue_date, subtotal, vat_amount, total, paid',
     )
     .order('issue_date', { ascending: false })
+    // Tie-breaker so invoices sharing an issue date list in a stable order.
+    .order('created_at', { ascending: false })
 
   if (filter.fromDate) query = query.gte('issue_date', filter.fromDate)
   if (filter.toDate) query = query.lte('issue_date', filter.toDate)
