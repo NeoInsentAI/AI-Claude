@@ -102,6 +102,10 @@ export function canSave(state: InvoiceFormState): CanSaveResult {
   if (n !== -1) return { ok: false, reason: `Line ${n + 1} needs a description.` }
   const bad = state.rows.findIndex((row) => !lineIsComputable(row))
   if (bad !== -1) return { ok: false, reason: `Line ${bad + 1} has an invalid amount.` }
+  const noQty = state.rows.findIndex((row) => row.quantity <= 0)
+  if (noQty !== -1) return { ok: false, reason: `Line ${noQty + 1}: quantity must be more than 0.` }
+  const negPrice = state.rows.findIndex((row) => row.unitPrice < 0)
+  if (negPrice !== -1) return { ok: false, reason: `Line ${negPrice + 1}: price can't be negative.` }
   if (!ISO_DATE.test(state.issueDate)) return { ok: false, reason: 'Enter an issue date.' }
   if (!ISO_DATE.test(state.dueDate)) return { ok: false, reason: 'Enter a due date.' }
   if (state.dueDate < state.issueDate) {

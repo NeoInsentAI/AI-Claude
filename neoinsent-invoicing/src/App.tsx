@@ -1,4 +1,4 @@
-import { Link, Route, Routes, useParams } from 'react-router-dom'
+import { Link, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { InvoiceFormPage } from './routes/InvoiceFormPage'
 
 /** Start view until the dashboard (Task 20) replaces it. */
@@ -13,14 +13,22 @@ function StartPage() {
   )
 }
 
-/** Where a saved draft lands until the invoice detail page (Task 19) replaces it. */
-function InvoiceSavedPlaceholder() {
-  const { id = '' } = useParams()
+/**
+ * Where a saved invoice lands until the invoice detail page (Task 19) replaces it. A redirect can
+ * pass `{ notice }` in router state to explain why the user ended up here.
+ */
+function InvoicePlaceholder() {
+  const location = useLocation()
+  const notice = (location.state as { notice?: unknown } | null)?.notice
   return (
     <div>
-      <h1>Draft saved</h1>
+      <h1>Invoice</h1>
+      {typeof notice === 'string' && notice !== '' && (
+        <p role="status" className="card">
+          {notice}
+        </p>
+      )}
       <p>
-        <Link to={`/invoices/${encodeURIComponent(id)}/edit`}>Edit this draft</Link> ·{' '}
         <Link to="/">Back to start</Link>
       </p>
     </div>
@@ -56,7 +64,7 @@ export function App() {
           <Route path="/" element={<StartPage />} />
           <Route path="/invoices/new" element={<InvoiceFormPage key="new" mode="new" />} />
           <Route path="/invoices/:id/edit" element={<EditInvoiceRoute />} />
-          <Route path="/invoices/:id" element={<InvoiceSavedPlaceholder />} />
+          <Route path="/invoices/:id" element={<InvoicePlaceholder />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

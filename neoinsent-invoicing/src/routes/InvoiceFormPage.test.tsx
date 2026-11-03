@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useParams } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ClientSummary } from '../components/ClientPicker'
 import { addDaysIso, todayLocalIso } from '../lib/invoiceForm'
@@ -83,7 +83,14 @@ function stubFetch(handler: Handler) {
 
 function InvoiceStub() {
   const { id } = useParams()
-  return <p>Invoice page {id}</p>
+  const location = useLocation()
+  const notice = (location.state as { notice?: string } | null)?.notice
+  return (
+    <>
+      <p>Invoice page {id}</p>
+      {notice && <p data-testid="route-notice">{notice}</p>}
+    </>
+  )
 }
 
 function renderAt(path: string) {
@@ -109,6 +116,14 @@ function saveButton() {
   return screen.getByRole('button', { name: 'Save draft' })
 }
 
+function expectSaveBlocked() {
+  expect(saveButton()).toHaveAttribute('aria-disabled', 'true')
+}
+
+function expectSaveAllowed() {
+  expect(saveButton()).toHaveAttribute('aria-disabled', 'false')
+}
+
 function bodyOf(fetchMock: ReturnType<typeof stubFetch>, method: string) {
   const call = fetchMock.mock.calls.find(([, init]) => init?.method === method)
   expect(call).toBeDefined()
@@ -119,18 +134,18 @@ describe('InvoiceFormPage — new', () => {
   it('disables Save with a reason until there is a client and a valid line', async () => {
     stubFetch(() => undefined)
     renderAt('/invoices/new')
-    expect(saveButton()).toBeDisabled()
+    expectSaveBlocked()
     expect(screen.getByText('Choose a client.')).toBeInTheDocument()
 
     await pickClient('Acme BV')
-    expect(saveButton()).toBeDisabled()
+    expectSaveBlocked()
     expect(screen.getByText('Add at least one line.')).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
     expect(screen.getByText('Line 1 needs a description.')).toBeInTheDocument()
 
     await userEvent.type(screen.getByLabelText('Description 1'), 'Consulting')
-    expect(saveButton()).toBeEnabled()
+    expectSaveAllowed()
   })
 
   it('defaults the dates to today and +14 days', async () => {
@@ -146,7 +161,7 @@ describe('InvoiceFormPage — new', () => {
     )
     renderAt('/invoices/new')
     await pickClient('Acme BV')
-    expect(screen.getByLabelText('Language')).toHaveValue('nl')
+    expect(screen.getByLabelText('Invoice language')).toHaveValue('nl')
 
     await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
     expect(screen.getByLabelText('VAT rate 1')).toHaveValue('21')
@@ -174,7 +189,7 @@ describe('InvoiceFormPage — new', () => {
     )
     renderAt('/invoices/new')
     await pickClient('Acme BV')
-    await userEvent.selectOptions(screen.getByLabelText('Language'), 'en')
+    await userEvent.selectOptions(screen.getByLabelText('Invoice language'), 'en')
     await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
     await userEvent.type(screen.getByLabelText('Description 1'), 'Work')
     await userEvent.click(saveButton())
@@ -194,7 +209,7 @@ describe('InvoiceFormPage — new', () => {
     await pickClient('Globex GmbH')
     expect(screen.getByLabelText('VAT rate 1')).toHaveValue('0')
     expect(screen.getByLabelText('VAT rate 1')).toBeDisabled()
-    expect(screen.getByLabelText('Language')).toHaveValue('en')
+    expect(screen.getByLabelText('Invoice language')).toHaveValue('en')
 
     // Back to NL: the zeroed lines go back to the standard rate.
     await pickClient('Acme BV')
@@ -221,8 +236,64 @@ describe('InvoiceFormPage — new', () => {
     expect(screen.getByText(/Edit the client to add it/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
     await userEvent.type(screen.getByLabelText('Description 1'), 'Work')
-    expect(saveButton()).toBeDisabled()
+    expectSaveBlocked()
     expect(screen.getByText("Add the client's VAT number first.")).toBeInTheDocument()
+  })
+
+  it('describes the language selector with a hint', async () => {
+    stubFetch(() => undefined)
+    renderAt('/invoices/new')
+    const select = screen.getByLabelText('Invoice language')
+    expect(select).toHaveAccessibleDescription('Used for the PDF and the email to the client.')
+  })
+
+  it('marks the date inputs as required', () => {
+    stubFetch(() => undefined)
+    renderAt('/invoices/new')
+    expect(screen.getByLabelText('Issue date')).toBeRequired()
+    expect(screen.getByLabelText('Due date')).toBeRequired()
+  })
+
+  it('keeps the Save button focusable while blocked and does not save', async () => {
+    const fetchMock = stubFetch(() => undefined)
+    renderAt('/invoices/new')
+    expect(saveButton()).not.toHaveAttribute('disabled')
+    await userEvent.click(saveButton())
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  })
+
+  it('lets the language follow the client until the user picks one', async () => {
+    const fetchMock = stubFetch((url, init) =>
+      url === '/api/invoices' && init?.method === 'POST' ? jsonResponse({ invoice: { id: 'inv-3' } }, 201) : undefined,
+    )
+    renderAt('/invoices/new')
+    await pickClient('Acme BV')
+    expect(screen.getByLabelText('Invoice language')).toHaveValue('nl')
+    await pickClient('Globex GmbH')
+    expect(screen.getByLabelText('Invoice language')).toHaveValue('en')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
+    await userEvent.type(screen.getByLabelText('Description 1'), 'Work')
+    await userEvent.click(saveButton())
+    await screen.findByText('Invoice page inv-3')
+    expect(bodyOf(fetchMock, 'POST').language).toBe('en')
+  })
+
+  it('sends one request when Save is clicked twice in quick succession', async () => {
+    const fetchMock = stubFetch((url, init) =>
+      url === '/api/invoices' && init?.method === 'POST' ? jsonResponse({ invoice: { id: 'inv-4' } }, 201) : undefined,
+    )
+    renderAt('/invoices/new')
+    await pickClient('Acme BV')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
+    await userEvent.type(screen.getByLabelText('Description 1'), 'Work')
+    const button = saveButton()
+    // Both clicks land before React re-renders, so only the in-flight ref can stop the second one.
+    act(() => {
+      button.click()
+      button.click()
+    })
+    await screen.findByText('Invoice page inv-4')
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1)
   })
 
   it("shows the server's error text when saving fails", async () => {
@@ -237,7 +308,7 @@ describe('InvoiceFormPage — new', () => {
     await userEvent.type(screen.getByLabelText('Description 1'), 'Work')
     await userEvent.click(saveButton())
     expect(await screen.findByRole('alert')).toHaveTextContent('Due date must not be before the issue date')
-    expect(saveButton()).toBeEnabled()
+    expectSaveAllowed()
   })
 })
 
@@ -252,13 +323,13 @@ describe('InvoiceFormPage — edit', () => {
       return jsonResponse({ invoice: draftInvoice() })
     })
     renderAt(editPath)
-    expect(screen.getByText(/Loading/)).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(/Loading/)
 
     expect(await screen.findByLabelText('Description 1')).toHaveValue('Consulting')
     expect(screen.getByLabelText('VAT rate 2')).toHaveValue('9')
     expect(screen.getByLabelText('Issue date')).toHaveValue('2026-10-01')
     expect(screen.getByLabelText('Due date')).toHaveValue('2026-10-15')
-    expect(screen.getByLabelText('Language')).toHaveValue('en')
+    expect(screen.getByLabelText('Invoice language')).toHaveValue('en')
     expect(screen.getByLabelText('Notes')).toHaveValue('Thanks!')
     await waitFor(() => expect(screen.getByLabelText('Client')).toHaveValue('1'))
     expect(screen.queryByText(/VAT details changed/)).not.toBeInTheDocument()
@@ -286,6 +357,28 @@ describe('InvoiceFormPage — edit', () => {
     stubFetch((url) => (url === invoiceUrl ? jsonResponse({ invoice: draftInvoice({ status: 'final' }) }) : undefined))
     renderAt(editPath)
     expect(await screen.findByText(`Invoice page ${INVOICE_ID}`)).toBeInTheDocument()
+    expect(screen.getByTestId('route-notice')).toHaveTextContent(
+      'This invoice is finalized and can no longer be edited.',
+    )
+  })
+
+  it("shows a neutral notice when the live client is now blocked, leaving the lines alone", async () => {
+    const fetchMock = stubFetch((url) =>
+      url === invoiceUrl
+        ? jsonResponse({ invoice: draftInvoice({ client_id: EU_NO_VAT.id, client: EU_NO_VAT }) })
+        : undefined,
+    )
+    renderAt(editPath)
+    expect(
+      await screen.findByText("This client's VAT details changed since the draft was created."),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/VAT lines were updated/)).not.toBeInTheDocument()
+    expect(screen.getByText(/no valid VAT number/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('VAT rate 1')).toHaveValue('21')
+    expect(screen.getByLabelText('VAT rate 2')).toHaveValue('9')
+    expectSaveBlocked()
+    await userEvent.click(saveButton())
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'PATCH')).toBe(false)
   })
 
   it("updates the VAT lines when the live client's treatment changed", async () => {
@@ -324,6 +417,9 @@ describe('InvoiceFormPage — edit', () => {
     await screen.findByLabelText('Description 1')
     await userEvent.click(saveButton())
     expect(await screen.findByText(`Invoice page ${INVOICE_ID}`)).toBeInTheDocument()
+    expect(screen.getByTestId('route-notice')).toHaveTextContent(
+      'This invoice has been finalized; your changes were not saved.',
+    )
   })
 
   it('shows a load error', async () => {

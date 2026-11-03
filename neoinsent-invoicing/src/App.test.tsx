@@ -7,7 +7,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function renderAt(path: string) {
+function renderAt(path: string | { pathname: string; state?: unknown }) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <App />
@@ -39,5 +39,18 @@ describe('App', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})))
     renderAt('/invoices/abc/edit')
     expect(screen.getByRole('heading', { name: 'Edit draft invoice' })).toBeInTheDocument()
+  })
+
+  it('shows the invoice placeholder without an edit link', () => {
+    renderAt('/invoices/abc')
+    expect(screen.getByRole('heading', { name: 'Invoice' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /edit/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to start' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('shows a notice passed in router state on the invoice placeholder', () => {
+    renderAt({ pathname: '/invoices/abc', state: { notice: 'This invoice is finalized and can no longer be edited.' } })
+    expect(screen.getByRole('status')).toHaveTextContent('This invoice is finalized and can no longer be edited.')
   })
 })

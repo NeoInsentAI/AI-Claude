@@ -135,6 +135,21 @@ describe('canSave', () => {
     expect(canSave(state({ dueDate: '2026-11-03' }))).toEqual({ ok: true })
   })
 
+  it('accepts a zero unit price', () => {
+    expect(canSave(state({ rows: [{ ...ROWS[0], unitPrice: 0 }] }))).toEqual({ ok: true })
+  })
+
+  it('names the offending line for amount checks', () => {
+    expect(canSave(state({ rows: [ROWS[0], { ...ROWS[1], quantity: 0 }] }))).toEqual({
+      ok: false,
+      reason: 'Line 2: quantity must be more than 0.',
+    })
+    expect(canSave(state({ rows: [ROWS[0], { ...ROWS[1], unitPrice: -1 }] }))).toEqual({
+      ok: false,
+      reason: "Line 2: price can't be negative.",
+    })
+  })
+
   it.each([
     ['no client', { client: null, treatment: null }, /client/i],
     ['blocked treatment', { treatment: 'blocked_missing_vat_number' as const }, /VAT number/i],
@@ -143,6 +158,9 @@ describe('canSave', () => {
     ['empty description', { rows: [{ ...ROWS[0], description: '   ' }] }, /description/i],
     ['non-finite amount', { rows: [{ ...ROWS[0], quantity: Number.NaN }] }, /amount/i],
     ['infinite total', { rows: [{ ...ROWS[0], quantity: 1e308, unitPrice: 1e308 }] }, /amount/i],
+    ['zero quantity', { rows: [{ ...ROWS[0], quantity: 0 }] }, /quantity must be more than 0/],
+    ['negative quantity', { rows: [{ ...ROWS[0], quantity: -1 }] }, /quantity must be more than 0/],
+    ['negative unit price', { rows: [{ ...ROWS[0], unitPrice: -5 }] }, /price can't be negative/],
     ['due before issue', { dueDate: '2026-11-02' }, /due date/i],
     ['missing issue date', { issueDate: '' }, /issue date/i],
     ['missing due date', { dueDate: '' }, /due date/i],

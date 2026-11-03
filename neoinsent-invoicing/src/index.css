@@ -109,7 +109,8 @@ button {
   border-color: var(--accent-deep);
 }
 
-.btn[disabled] {
+.btn[disabled],
+.btn.is-disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -153,6 +154,11 @@ th {
 
 tr:not(:last-child) td {
   border-bottom: 1px solid var(--border);
+}
+
+/* Inline error text. */
+.error {
+  color: var(--danger);
 }
 
 /* Hidden visually but still read by screen readers. */
