@@ -41,6 +41,37 @@ describe('apiFetch', () => {
     expect((init.headers as Headers).get('Content-Type')).toBe('application/json')
   })
 
+  it('sends JSON content type and an empty JSON body on a body-less write', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(textResponse('', 204))
+    vi.stubGlobal('fetch', fetchMock)
+    await apiFetch('/api/thing/1', { method: 'DELETE' })
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect((init.headers as Headers).get('Content-Type')).toBe('application/json')
+    expect(init.body).toBe('{}')
+  })
+
+  it('keeps caller headers (plain object or Headers) when adding the content type', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
+    vi.stubGlobal('fetch', fetchMock)
+    await apiFetch('/api/thing', { method: 'POST', body: '{}', headers: { 'X-Test': 'a' } })
+    await apiFetch('/api/thing', { method: 'PATCH', headers: new Headers({ 'X-Test': 'b' }) })
+    const h1 = (fetchMock.mock.calls[0][1] as RequestInit).headers as Headers
+    const h2 = (fetchMock.mock.calls[1][1] as RequestInit).headers as Headers
+    expect(h1.get('X-Test')).toBe('a')
+    expect(h1.get('Content-Type')).toBe('application/json')
+    expect(h2.get('X-Test')).toBe('b')
+    expect(h2.get('Content-Type')).toBe('application/json')
+  })
+
+  it('sends no content type or body on GET', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}))
+    vi.stubGlobal('fetch', fetchMock)
+    await apiFetch('/api/thing')
+    const init = fetchMock.mock.calls[0][1] as RequestInit
+    expect((init.headers as Headers).has('Content-Type')).toBe(false)
+    expect(init.body).toBeUndefined()
+  })
+
   it('rejects with the status in the message when an error response is not JSON', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(textResponse(HTML, 500)))
     const err = await apiFetch('/api/thing').catch((e: unknown) => e)

@@ -30,34 +30,64 @@ if (!/^\d+$/.test(rawPort) || port < 1 || port > 65535) fail(`PORT must be a num
 const { createApp } = await import('./app')
 const { closeDb, getDataDir, getDb, rotateBackups } = await import('../api/_lib/db')
 
-let dataDir: string
-try {
-  dataDir = getDataDir()
-  getDb()
-} catch (error) {
-  fail(`Could not open the NeoInsent database: ${error instanceof Error ? error.message : String(error)}`)
-}
-
 const url = `http://localhost:${port}`
 const server = http.createServer(createApp({ port }))
+const HOUR = 60 * 60 * 1000
 
-server.on('error', (error: NodeJS.ErrnoException) => {
-  closeDb()
+/** Takes today's backup unless it already exists; a failed backup is logged, never fatal. */
+function backup(dataDir: string, log = true): void {
+  try {
+    const file = rotateBackups(dataDir)
+    if (log) console.log(`Today's backup: ${file}`)
+  } catch (error) {
+    console.warn('Warning: could not write the daily backup:', error)
+  }
+}
+
+/** True if whatever answers on this port is a NeoInsent server. */
+async function isNeoInsentRunning(): Promise<boolean> {
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
+      headers: { Host: `localhost:${port}` },
+      signal: AbortSignal.timeout(2000),
+    })
+    const body = (await res.json()) as { app?: unknown }
+    return body?.app === 'neoinsent'
+  } catch {
+    return false
+  }
+}
+
+server.on('error', async (error: NodeJS.ErrnoException) => {
+  // The database is only opened after listen succeeds, so there is nothing to close here.
   if (error.code === 'EADDRINUSE') {
-    console.log(`NeoInsent is already running — open ${url}`)
-    process.exit(0)
+    if (await isNeoInsentRunning()) {
+      console.log(`NeoInsent is already running — open ${url}`)
+      process.exit(0)
+    }
+    fail(`Port ${port} is used by another program — set PORT to a free port (e.g. PORT=5175 npm start).`)
   }
   fail(`Could not start the server: ${error.message}`)
 })
 
+// Listen first, then open the database: a second launch fails on the port before it can migrate
+// the database under a running instance.
 server.listen(port, '127.0.0.1', () => {
+  let dataDir: string
+  try {
+    dataDir = getDataDir()
+    getDb()
+  } catch (error) {
+    console.error(`Could not open the NeoInsent database: ${error instanceof Error ? error.message : String(error)}`)
+    server.close()
+    closeDb()
+    process.exit(1)
+  }
   console.log(`NeoInsent Invoicing is running — open ${url}`)
   console.log(`Data folder: ${dataDir}`)
-  try {
-    console.log(`Today's backup: ${rotateBackups(dataDir)}`)
-  } catch (error) {
-    console.warn('Warning: could not write the daily backup:', error)
-  }
+  backup(dataDir)
+  // Keep taking the daily backup while the app stays open across midnight.
+  setInterval(() => backup(getDataDir(), false), HOUR).unref()
   console.log('Press Ctrl+C to stop.')
 })
 

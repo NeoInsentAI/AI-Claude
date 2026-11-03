@@ -77,7 +77,7 @@ describe('API through the real database', () => {
 
   it("keeps the handler's own 405 for other methods", async () => {
     const server = app()
-    const res = await request(server).delete('/api/clients').set('Host', HOST)
+    const res = await request(server).delete('/api/clients').set('Host', HOST).set('Content-Type', 'application/json')
     expect(res.status).toBe(405)
     expect(res.body).toEqual({ error: 'Method not allowed' })
   })
@@ -173,6 +173,103 @@ describe('localhost-only protections', () => {
   })
 })
 
+describe('writes must be JSON and same-site', () => {
+  it('rejects a text/plain write without Origin with 415 and writes nothing', async () => {
+    const server = app()
+    const res = await request(server)
+      .post('/api/clients')
+      .set('Host', HOST)
+      .set('Content-Type', 'text/plain')
+      .send(JSON.stringify(acme))
+    expect(res.status).toBe(415)
+    expect(res.body).toEqual({ error: 'Send JSON (Content-Type: application/json)' })
+    const list = await request(server).get('/api/clients').set('Host', HOST)
+    expect(list.body.clients).toEqual([])
+  })
+
+  it('rejects a body-less write with no Content-Type with 415', async () => {
+    const res = await request(app()).delete('/api/clients/abc').set('Host', HOST)
+    expect(res.status).toBe(415)
+  })
+
+  it('accepts application/json with a charset parameter', async () => {
+    const res = await request(app())
+      .post('/api/clients')
+      .set('Host', HOST)
+      .set('Content-Type', 'Application/JSON; charset=utf-8')
+      .send(JSON.stringify(acme))
+    expect(res.status).toBe(201)
+  })
+
+  it('rejects a write with Sec-Fetch-Site: cross-site (no Origin) with 403', async () => {
+    const server = app()
+    const res = await request(server).post('/api/clients').set('Host', HOST).set('Sec-Fetch-Site', 'cross-site').send(acme)
+    expect(res.status).toBe(403)
+    expect(res.body).toEqual({ error: 'Forbidden: cross-site request' })
+    const list = await request(server).get('/api/clients').set('Host', HOST)
+    expect(list.body.clients).toEqual([])
+  })
+
+  it('rejects a write with Sec-Fetch-Site: same-site with 403', async () => {
+    const res = await request(app()).post('/api/clients').set('Host', HOST).set('Sec-Fetch-Site', 'same-site').send(acme)
+    expect(res.status).toBe(403)
+  })
+
+  it('allows Sec-Fetch-Site: same-origin and none', async () => {
+    for (const site of ['same-origin', 'none']) {
+      const res = await request(app()).post('/api/clients').set('Host', HOST).set('Sec-Fetch-Site', site).send(acme)
+      expect(res.status).toBe(201)
+    }
+  })
+
+  it('still accepts a same-origin JSON POST', async () => {
+    const res = await request(app())
+      .post('/api/clients')
+      .set('Host', HOST)
+      .set('Origin', `http://localhost:${PORT}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send(acme)
+    expect(res.status).toBe(201)
+  })
+
+  it('does not require JSON for GET', async () => {
+    const res = await request(app()).get('/api/clients').set('Host', HOST).set('Sec-Fetch-Site', 'cross-site')
+    expect(res.status).toBe(200)
+  })
+})
+
+describe('security headers', () => {
+  const expected = {
+    'x-frame-options': 'DENY',
+    'content-security-policy': "frame-ancestors 'none'",
+    'x-content-type-options': 'nosniff',
+    'cross-origin-resource-policy': 'same-origin',
+    'referrer-policy': 'no-referrer',
+  }
+
+  it('sets them on the frontend, on /api responses and on rejections', async () => {
+    const responses = [
+      await request(app()).get('/').set('Host', HOST),
+      await request(app()).get('/api/clients').set('Host', HOST),
+      await request(app()).get('/api/clients').set('Host', 'evil.example'),
+    ]
+    for (const res of responses) expect(res.headers).toEqual(expect.objectContaining(expected))
+  })
+})
+
+describe('GET /api/health', () => {
+  it('identifies the app', async () => {
+    const res = await request(app()).get('/api/health').set('Host', HOST)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ app: 'neoinsent' })
+  })
+
+  it('is subject to the Host check', async () => {
+    const res = await request(app()).get('/api/health').set('Host', 'evil.example:5174')
+    expect(res.status).toBe(403)
+  })
+})
+
 describe('routing and errors', () => {
   it('returns 404 JSON for an unknown /api route', async () => {
     const res = await request(app()).get('/api/nope').set('Host', HOST)
@@ -188,7 +285,27 @@ describe('routing and errors', () => {
       .set('Content-Type', 'application/json')
       .send('{"name":')
     expect(res.status).toBe(400)
-    expect(res.body).toEqual({ error: expect.any(String) })
+    expect(res.body).toEqual({ error: 'Request body is not valid JSON' })
+  })
+
+  it('returns 413 with a fixed message for a too-large body', async () => {
+    const res = await request(app())
+      .post('/api/clients')
+      .set('Host', HOST)
+      .set('Content-Type', 'application/json')
+      .send(JSON.stringify({ name: 'x'.repeat(1024 * 1024 + 10) }))
+    expect(res.status).toBe(413)
+    expect(res.body).toEqual({ error: 'Request body is too large' })
+  })
+
+  it('does not echo the message of other 4xx errors', async () => {
+    const res = await request(app())
+      .post('/api/clients')
+      .set('Host', HOST)
+      .set('Content-Type', 'application/json; charset=bogus-charset-xyz')
+      .send('{}')
+    expect(res.status).toBe(415)
+    expect(res.body).toEqual({ error: 'Bad request' })
   })
 
   it('serves the built frontend and falls back to index.html for app routes', async () => {
