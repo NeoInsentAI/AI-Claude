@@ -320,3 +320,14 @@ describe('replaceDraftInvoice', () => {
     expect(getDb().isTransaction).toBe(false)
   })
 })
+
+describe('getInvoice client', () => {
+  it('is a plain object with exactly the client columns', async () => {
+    const { id } = await createDraftInvoice(draftFor(acme))
+
+    const invoice = await getInvoice(id)
+
+    expect(Object.getPrototypeOf(invoice?.client)).toBe(Object.prototype)
+    expect(Object.keys(invoice?.client ?? {}).sort()).toEqual(Object.keys(acme).sort())
+  })
+})

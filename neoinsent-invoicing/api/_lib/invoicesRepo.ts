@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
 import { fromCents, getDb, toCents, toHundredths, withTransaction } from './db'
-import type { Client, NewClient } from './clientsRepo'
+import { CLIENT_COLUMNS, toClient, type Client, type NewClient } from './clientsRepo'
 import { computeInvoiceTotals, computeLine } from '../../src/lib/invoiceMath'
 import type { InvoiceVatTreatment } from '../../src/lib/vat'
 
@@ -231,12 +231,10 @@ function loadInvoice(db: DatabaseSync, id: string): InvoiceWithDetails | null {
   const items = db
     .prepare('select * from invoice_items where invoice_id = ? order by sort_order')
     .all(id) as unknown as InvoiceItemRow[]
-  const client = db.prepare('select * from clients where id = ?').get(row.client_id) as
-    | Client
-    | undefined
+  const client = db.prepare(`select ${CLIENT_COLUMNS} from clients where id = ?`).get(row.client_id)
   return {
     ...fromInvoiceRow(row),
-    client: client ? { ...client } : null,
+    client: client === undefined ? null : toClient(client),
     items: items.map(fromItemRow),
   }
 }

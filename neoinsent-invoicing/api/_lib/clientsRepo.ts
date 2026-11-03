@@ -21,18 +21,25 @@ export type NewClient = Omit<Client, 'id' | 'created_at' | 'updated_at'>
 // The database work is synchronous (node:sqlite); the functions stay async so callers can await
 // them the same way whatever the storage.
 
-const COLUMNS =
+/** The columns of a `Client`, for `select` statements (also used by invoicesRepo). */
+export const CLIENT_COLUMNS =
   'id, name, contact_person, email, address_line, postal_code, city, country, vat_number, kvk_number, created_at, updated_at'
 
+/** node:sqlite rows have a null prototype; callers get ordinary objects. */
+export function toClient(row: unknown): Client {
+  return { ...(row as Client) }
+}
+
 function selectById(id: string): Client | null {
-  const row = getDb().prepare(`select ${COLUMNS} from clients where id = ?`).get(id)
-  return (row as Client | undefined) ?? null
+  const row = getDb().prepare(`select ${CLIENT_COLUMNS} from clients where id = ?`).get(id)
+  return row === undefined ? null : toClient(row)
 }
 
 export async function listClients(): Promise<Client[]> {
   return getDb()
-    .prepare(`select ${COLUMNS} from clients order by name collate nocase, created_at`)
-    .all() as unknown as Client[]
+    .prepare(`select ${CLIENT_COLUMNS} from clients order by name collate nocase, created_at`)
+    .all()
+    .map(toClient)
 }
 
 export async function getClientById(id: string): Promise<Client | null> {

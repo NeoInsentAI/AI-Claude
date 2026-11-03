@@ -5,7 +5,7 @@ import path from 'node:path'
 import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { closeDb } from '../api/_lib/db'
+import { closeDb, getDb } from '../api/_lib/db'
 import { createApp, wrap } from './app'
 
 const PORT = 5174
@@ -103,7 +103,107 @@ describe('API through the real database', () => {
     expect(list.status).toBe(200)
     expect(list.body.invoices).toEqual([expect.objectContaining({ id: created.body.invoice.id })])
   })
+
+  it('GET /api/invoices/:id returns the draft with its items and live client', async () => {
+    const server = app()
+    const client = await createAcme(server)
+    const id = await createDraft(server, client.id)
+
+    const res = await request(server).get(`/api/invoices/${id}`).set('Host', HOST)
+    expect(res.status).toBe(200)
+    expect(res.body.invoice).toEqual(
+      expect.objectContaining({ id, status: 'draft', subtotal: 200, vat_amount: 42, total: 242 }),
+    )
+    expect(res.body.invoice.client).toEqual(expect.objectContaining({ id: client.id, name: 'Acme BV' }))
+    expect(res.body.invoice.items).toEqual([
+      expect.objectContaining({ description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21, line_total: 242 }),
+    ])
+  })
+
+  it('GET /api/invoices/:id answers 404 for an unknown invoice', async () => {
+    const res = await request(app())
+      .get('/api/invoices/7c9e6679-7425-40de-944b-e07fc1f90ae7')
+      .set('Host', HOST)
+    expect(res.status).toBe(404)
+    expect(res.body).toEqual({ error: 'Invoice not found' })
+  })
+
+  it('PATCH /api/invoices/:id replaces the lines and recomputes the totals', async () => {
+    const server = app()
+    const client = await createAcme(server)
+    const id = await createDraft(server, client.id)
+
+    const res = await request(server)
+      .patch(`/api/invoices/${id}`)
+      .set('Host', HOST)
+      .send({
+        ...draftBody(client.id),
+        notes: 'Updated',
+        items: [
+          { description: 'Workshop', quantity: 1, unit_price: 500, vat_rate: 21 },
+          { description: 'Travel', quantity: 3, unit_price: 10, vat_rate: 9 },
+        ],
+      })
+    expect(res.status).toBe(200)
+    expect(res.body.invoice).toEqual(
+      expect.objectContaining({ id, notes: 'Updated', subtotal: 530, vat_amount: 107.7, total: 637.7 }),
+    )
+
+    const reread = await request(server).get(`/api/invoices/${id}`).set('Host', HOST)
+    expect(reread.body.invoice.items.map((i: { description: string }) => i.description)).toEqual([
+      'Workshop',
+      'Travel',
+    ])
+    expect(reread.body.invoice.total).toBe(637.7)
+  })
+
+  it('PATCH /api/invoices/:id refuses a final invoice with 409 and leaves it unchanged', async () => {
+    const server = app()
+    const client = await createAcme(server)
+    const id = await createDraft(server, client.id)
+    const { id: _id, created_at: _c, updated_at: _u, ...snapshot } = (
+      await request(server).get(`/api/invoices/${id}`).set('Host', HOST)
+    ).body.invoice.client
+    getDb()
+      .prepare(
+        `update invoices set invoice_number = ?, client_snapshot = ?, finalized_at = ?, status = 'final'
+         where id = ?`,
+      )
+      .run('2026-0001', JSON.stringify(snapshot), '2026-11-03T10:00:00.000Z', id)
+    const before = (await request(server).get(`/api/invoices/${id}`).set('Host', HOST)).body.invoice
+
+    const res = await request(server)
+      .patch(`/api/invoices/${id}`)
+      .set('Host', HOST)
+      .send({
+        ...draftBody(client.id),
+        items: [{ description: 'Sneaky edit', quantity: 1, unit_price: 1, vat_rate: 21 }],
+      })
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({ error: 'This invoice is finalized and can no longer be edited' })
+
+    const after = (await request(server).get(`/api/invoices/${id}`).set('Host', HOST)).body.invoice
+    expect(after).toEqual(before)
+    expect(after.items).toEqual([expect.objectContaining({ description: 'Consulting' })])
+  })
 })
+
+function draftBody(clientId: string) {
+  return {
+    client_id: clientId,
+    language: 'nl',
+    vat_treatment: 'nl_standard',
+    issue_date: '2026-11-02',
+    due_date: '2026-11-16',
+    items: [{ description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 }],
+  }
+}
+
+async function createDraft(server: express.Express, clientId: string): Promise<string> {
+  const res = await request(server).post('/api/invoices').set('Host', HOST).send(draftBody(clientId))
+  expect(res.status).toBe(201)
+  return res.body.invoice.id as string
+}
 
 describe('localhost-only protections', () => {
   it('rejects a foreign Host header with 403 (DNS rebinding)', async () => {

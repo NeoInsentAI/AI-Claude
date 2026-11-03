@@ -102,3 +102,16 @@ describe('updateClient', () => {
     expect(await updateClient('00000000-0000-4000-8000-000000000000', acme)).toBeNull()
   })
 })
+
+describe('returned rows', () => {
+  it('are plain objects, not null-prototype database rows', async () => {
+    const created = await createClient(acme)
+    const updated = await updateClient(created.id, acme)
+    const fetched = await getClientById(created.id)
+    const [listed] = await listClients()
+
+    for (const client of [created, updated, fetched, listed]) {
+      expect(Object.getPrototypeOf(client)).toBe(Object.prototype)
+    }
+  })
+})

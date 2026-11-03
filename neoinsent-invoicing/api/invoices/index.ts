@@ -1,25 +1,12 @@
 import type { Request, Response } from 'express'
-import { getClientById } from '../_lib/clientsRepo'
+import { checkClientForDraft } from '../_lib/checkClientForDraft'
 import { createDraftInvoice, listInvoices, type ListInvoicesFilter } from '../_lib/invoicesRepo'
 import { validateDraftInvoice } from '../_lib/validateDraftInvoice'
 import { quarterDateRange } from '../../src/lib/dateRanges'
-import { determineVatTreatment, type VatTreatment } from '../../src/lib/vat'
 
 const DATABASE_ERROR = 'Database error — please try again'
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
-
-// Explains why the draft's VAT treatment doesn't fit the client as stored now.
-function vatMismatchMessage(expected: VatTreatment): string {
-  switch (expected) {
-    case 'blocked_missing_vat_number':
-      return 'This client needs a valid VAT number matching their country before you can invoice them'
-    case 'not_supported':
-      return "This client's country isn't supported for invoicing"
-    default:
-      return `VAT treatment doesn't match this client (expected ${expected})`
-  }
-}
 
 type FilterResult = { ok: true; value: ListInvoicesFilter } | { ok: false; error: string }
 
@@ -71,16 +58,9 @@ export default async function handler(req: Request, res: Response) {
       return
     }
     try {
-      // Re-check against the stored client: catches an unknown client id and
-      // a stale or tampered VAT treatment. Finalize re-checks this again.
-      const client = await getClientById(result.value.client_id)
-      if (!client) {
-        res.status(400).json({ error: 'Client not found' })
-        return
-      }
-      const expected = determineVatTreatment(client.country, client.vat_number).treatment
-      if (expected !== result.value.vat_treatment) {
-        res.status(400).json({ error: vatMismatchMessage(expected) })
+      const check = await checkClientForDraft(result.value.client_id, result.value.vat_treatment)
+      if (!check.ok) {
+        res.status(400).json({ error: check.error })
         return
       }
 
