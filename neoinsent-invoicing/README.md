@@ -35,6 +35,24 @@ and would hand out their numbers again. The app refuses to finalize an invoice w
 already has a PDF in `invoices/`, and says so — that check relies on the PDFs being present in
 the `invoices/` folder, so never delete or move them out of it.
 
+## Sending email
+
+Finalized invoices are emailed (PDF attached) from the company mailbox `finance@neoinsentai.com`
+through Gmail. Until this is set up the app works normally, but sending says "Email isn't set up
+yet".
+
+1. Sign in to Google as `finance@neoinsentai.com`. 2-Step Verification must be on for that
+   account (myaccount.google.com/security).
+2. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords), create an
+   app password (name it e.g. "NeoInsent Invoicing") and copy the 16-character password.
+3. In this folder, copy `.env.example` to `.env` (`cp .env.example .env`) and paste the password
+   after `GMAIL_APP_PASSWORD=`. `.env` stays on this Mac; it is never committed.
+4. Restart the app (Ctrl+C, then `npm start`).
+
+Each invoice goes to the client email address it was issued with, and replies go to
+`finance@neoinsentai.com`. Sent emails appear in that mailbox's Sent folder. If Gmail rejects the
+login, create a new app password and replace the one in `.env`.
+
 ## Scripts
 
 `npm run test`, `npm run build`, `npm run lint`.

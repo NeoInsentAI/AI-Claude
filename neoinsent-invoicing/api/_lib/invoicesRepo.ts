@@ -561,3 +561,25 @@ export async function setInvoicePaid(
     return loadInvoice(db, id) as InvoiceWithDetails
   })
 }
+
+/**
+ * Records that a final invoice was emailed: sets `sent_at` (and `updated_at`) to `now`. Returns
+ * 'not_found' for an unknown id and 'not_final' for a draft (left untouched); otherwise the
+ * refreshed invoice. Sending again simply moves `sent_at` to the latest send.
+ */
+export async function markInvoiceSent(
+  id: string,
+  now: Date = new Date(),
+): Promise<'not_found' | 'not_final' | InvoiceWithDetails> {
+  const db = getDb()
+  const at = now.toISOString()
+  return withTransaction(db, () => {
+    const result = db
+      .prepare("update invoices set sent_at = ?, updated_at = ? where id = ? and status = 'final'")
+      .run(at, at, id)
+    if (result.changes === 0) {
+      return selectInvoiceRow(db, id) ? ('not_final' as const) : ('not_found' as const)
+    }
+    return loadInvoice(db, id) as InvoiceWithDetails
+  })
+}

@@ -10,6 +10,7 @@ import {
   createDraftInvoice,
   finalizeDraftInvoice,
   getInvoice,
+  markInvoiceSent,
   setInvoicePaid,
   setInvoicePdfPath,
   type DraftInvoiceInput,
@@ -382,5 +383,27 @@ describe('setInvoicePaid', () => {
       getDb().prepare('update invoices set paid = 0, total_cents = 1 where id = ?').run(draft.id),
     ).toThrow(/final invoices cannot be changed/)
     expect(storedRow(draft.id)).toMatchObject({ paid: 1 })
+  })
+})
+
+describe('markInvoiceSent', () => {
+  it('stamps sent_at and updated_at on a final invoice and returns it', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    await finalizeDraftInvoice(draft.id, NOW)
+    const sentAt = new Date(2026, 10, 5, 9, 0)
+
+    const sent = await markInvoiceSent(draft.id, sentAt)
+    expect(sent).toMatchObject({ id: draft.id, status: 'final', sent_at: sentAt.toISOString() })
+    expect(storedRow(draft.id)).toMatchObject({ sent_at: sentAt.toISOString(), updated_at: sentAt.toISOString() })
+  })
+
+  it("returns 'not_final' for a draft, leaving it untouched", async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    expect(await markInvoiceSent(draft.id, NOW)).toBe('not_final')
+    expect(storedRow(draft.id)).toMatchObject({ sent_at: null, updated_at: null })
+  })
+
+  it("returns 'not_found' for an unknown id", async () => {
+    expect(await markInvoiceSent(UNKNOWN_ID, NOW)).toBe('not_found')
   })
 })

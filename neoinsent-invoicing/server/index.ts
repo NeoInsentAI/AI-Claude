@@ -6,10 +6,19 @@
  *   npm run server            run the server only (pair with `npm run dev` for development)
  */
 import http from 'node:http'
+import { loadEnvFileIfPresent, PROJECT_ENV_FILE } from './loadEnv'
 
 function fail(message: string): never {
   console.error(message)
   process.exit(1)
+}
+
+// Load <project root>/.env (Gmail settings, optional PORT/NEOINSENT_DATA_DIR) before anything
+// reads the environment. A missing file is fine: email then simply reports "not set up".
+try {
+  loadEnvFileIfPresent(PROJECT_ENV_FILE)
+} catch (error) {
+  fail(`Could not read ${PROJECT_ENV_FILE}: ${error instanceof Error ? error.message : String(error)}`)
 }
 
 // Check the runtime before importing anything that needs node:sqlite.
