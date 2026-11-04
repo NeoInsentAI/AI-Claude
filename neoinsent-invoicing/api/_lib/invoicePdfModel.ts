@@ -328,7 +328,7 @@ export function buildInvoicePdfModel(input: InvoicePdfInput): InvoicePdfModel {
 
   const iban = formatIban(COMPANY.iban)
   const footer = [
-    `${COMPANY.name} · ${COMPANY.addressLine}, ${COMPANY.postalCode} ${COMPANY.city} · ${COMPANY.email}`,
+    `${COMPANY.name} · ${COMPANY.addressLine}, ${COMPANY.postalCode} ${COMPANY.city}, ${countryName(COMPANY.country, language)} · ${COMPANY.email}`,
     `${text.companyKvk} ${COMPANY.kvkNumber} · ${text.companyVat} ${COMPANY.vatNumber} · ${text.companyBranch} ${COMPANY.branchNumber}`,
     `IBAN ${iban} · BIC ${COMPANY.bic}`,
   ]

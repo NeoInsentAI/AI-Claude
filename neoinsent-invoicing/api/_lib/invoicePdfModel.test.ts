@@ -193,9 +193,9 @@ describe('buildInvoicePdfModel', () => {
     }
   })
 
-  it('prints the full company address, house number included', () => {
-    const footer = buildInvoicePdfModel(NL_INPUT).footer.join(' ')
-    expect(footer).toContain('Wagenlaan 2, 6225KE Maastricht')
+  it('prints the full company address, house number and country included, in the invoice language', () => {
+    expect(buildInvoicePdfModel(NL_INPUT).footer.join(' ')).toContain('Wagenlaan 2, 6225KE Maastricht, Nederland')
+    expect(buildInvoicePdfModel(EN_RC_INPUT).footer.join(' ')).toContain('Wagenlaan 2, 6225KE Maastricht, Netherlands')
   })
 
   it('never contains an OB-nummer', () => {
