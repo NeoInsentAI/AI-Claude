@@ -103,20 +103,32 @@ describe('invoicesCsv', () => {
 })
 
 describe('icpCsv', () => {
-  it('writes the BOM, the Dutch header and one row per customer', () => {
+  it('writes the BOM, the Dutch header and one row per customer, with the VAT country code apart', () => {
     const csv = icpCsv([icp(), icp({ country: 'FR', vatNumber: 'FR12345678901', clientName: 'Exemple SARL', servicesTotal: 400 })])
     expect(csv.startsWith(BOM)).toBe(true)
     expect(lines(csv)).toEqual([
-      'Land;Btw-nummer;Klant;Diensten (excl. btw)',
-      'DE;DE123456789;Beispiel GmbH;1666,66',
-      'FR;FR12345678901;Exemple SARL;400,00',
+      'Landcode btw-nummer;Btw-nummer (zonder landcode);Klant;Diensten (excl. btw)',
+      'DE;123456789;Beispiel GmbH;1666,66',
+      'FR;12345678901;Exemple SARL;400,00',
       '',
     ])
   })
 
+  it('uses the VAT number prefix EL for a Greek customer (country GR)', () => {
+    expect(lines(icpCsv([icp({ country: 'GR', vatNumber: 'EL123456789', clientName: 'Etaireia AE' })]))[1]).toBe(
+      'EL;123456789;Etaireia AE;1666,66',
+    )
+  })
+
+  it('falls back to the country VAT prefix when the stored number has none', () => {
+    expect(lines(icpCsv([icp({ country: 'GR', vatNumber: '123456789' })]))[1]).toBe(
+      'EL;123456789;Beispiel GmbH;1666,66',
+    )
+  })
+
   it('quotes and neutralises the client name like the invoices CSV', () => {
     expect(lines(icpCsv([icp({ clientName: '=HYPERLINK("x")' })]))[1]).toBe(
-      'DE;DE123456789;"\'=HYPERLINK(""x"")";1666,66',
+      'DE;123456789;"\'=HYPERLINK(""x"")";1666,66',
     )
   })
 })

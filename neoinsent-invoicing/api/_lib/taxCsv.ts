@@ -1,5 +1,5 @@
 import type { IcpRow, TaxInvoiceRow } from './invoicesRepo'
-import type { InvoiceVatTreatment } from '../../src/lib/vat'
+import { vatPrefixForCountry, type InvoiceVatTreatment } from '../../src/lib/vat'
 import { formatDate } from '../../src/lib/format'
 
 // CSV files for Dutch Excel: `;` between fields, decimal comma, no thousands separator, dates
@@ -64,10 +64,24 @@ export function invoicesCsv(rows: TaxInvoiceRow[]): string {
   )
 }
 
-/** The ICP declaration: services per EU customer. */
+/**
+ * Splits a VAT number into its 2-letter country prefix and the rest, as the Belastingdienst ICP
+ * form asks for them separately ('EL123456789' → ['EL', '123456789']; Greece is EL, not GR).
+ * A number stored without a letter prefix gets the country's VAT prefix.
+ */
+function splitVatNumber(vatNumber: string, country: string): [string, string] {
+  const compact = vatNumber.replace(/[\s.-]/g, '').toUpperCase()
+  if (/^[A-Z]{2}/.test(compact)) return [compact.slice(0, 2), compact.slice(2)]
+  return [vatPrefixForCountry(country), compact]
+}
+
+/** The ICP declaration: services per EU customer, VAT country code and number in separate columns. */
 export function icpCsv(rows: IcpRow[]): string {
   return csv(
-    ['Land', 'Btw-nummer', 'Klant', 'Diensten (excl. btw)'],
-    rows.map((row) => [text(row.country), text(row.vatNumber), text(row.clientName), amount(row.servicesTotal)]),
+    ['Landcode btw-nummer', 'Btw-nummer (zonder landcode)', 'Klant', 'Diensten (excl. btw)'],
+    rows.map((row) => {
+      const [code, number] = splitVatNumber(row.vatNumber, row.country)
+      return [text(code), text(number), text(row.clientName), amount(row.servicesTotal)]
+    }),
   )
 }

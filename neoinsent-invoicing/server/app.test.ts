@@ -528,7 +528,7 @@ describe('GET /api/tax and the CSV downloads', () => {
     const res = await request(server).get('/api/tax/icp.csv?year=2026').set('Host', HOST)
     expect(res.status).toBe(200)
     expect(res.headers['content-disposition']).toBe('attachment; filename="neoinsent-icp-2026.csv"')
-    expect(res.text).toBe('\uFEFFLand;Btw-nummer;Klant;Diensten (excl. btw)\r\n')
+    expect(res.text).toBe('\uFEFFLandcode btw-nummer;Btw-nummer (zonder landcode);Klant;Diensten (excl. btw)\r\n')
   })
 
   it('requires a year and allows only GET', async () => {

@@ -127,7 +127,7 @@ describe('GET /api/tax/invoices.csv and /api/tax/icp.csv', () => {
     const res = await call(icpCsvHandler, { year: '2026' })
     expect(invoicesRepo.taxReport).toHaveBeenCalledWith({ fromDate: '2026-01-01', toDate: '2026-12-31' })
     expect(res.headers['Content-Disposition']).toBe('attachment; filename="neoinsent-icp-2026.csv"')
-    expect(res.body).toBe('﻿Land;Btw-nummer;Klant;Diensten (excl. btw)\r\nDE;DE123456789;Beispiel GmbH;1666,66\r\n')
+    expect(res.body).toBe('﻿Landcode btw-nummer;Btw-nummer (zonder landcode);Klant;Diensten (excl. btw)\r\nDE;123456789;Beispiel GmbH;1666,66\r\n')
   })
 
   it('validates the period as JSON errors', async () => {
