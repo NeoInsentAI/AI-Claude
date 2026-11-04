@@ -193,14 +193,15 @@ describe('POST /api/invoices/:id/finalize', () => {
     expect(later).toEqual({ status: 'ok', path: path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf') })
   })
 
-  it('logs a distinct error and keeps the existing file when a PDF already sits at the new path', async () => {
+  it('moves a foreign file at the new path aside, writes this invoice there and warns', async () => {
     const server = app()
     const { invoiceId } = await createDraft(server)
-    const abs = path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    const dir = path.join(dataDir, 'invoices', '2026')
+    const abs = path.join(dir, 'NEO-2026-0001.pdf')
     const actualRender = vi.mocked(invoicePdf.renderInvoicePdf).getMockImplementation()!
     // A file appears at the path after the number was taken, before the PDF is moved into place.
     vi.mocked(invoicePdf.renderInvoicePdf).mockImplementationOnce(async (model) => {
-      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      fs.mkdirSync(dir, { recursive: true })
       fs.writeFileSync(abs, 'someone else')
       return actualRender(model)
     })
@@ -209,12 +210,63 @@ describe('POST /api/invoices/:id/finalize', () => {
     const res = await finalize(server, invoiceId)
 
     expect(res.status).toBe(200)
-    expect(res.body.pdfError).toMatch(/could not be created yet/)
-    expect(fs.readFileSync(abs, 'utf8')).toBe('someone else')
-    expect(logged).toHaveBeenCalledWith(
-      'A PDF for NEO-2026-0001 already existed on disk before this invoice was issued — check the invoices folder',
-      expect.objectContaining({ code: 'EEXIST' }),
+    expect(res.body.pdfError).toBeUndefined()
+    expect(res.body.invoice).toMatchObject({ invoice_number: 'NEO-2026-0001', pdf_path: 'invoices/2026/NEO-2026-0001.pdf' })
+    expect((await invoicesRepo.getInvoice(invoiceId))?.pdf_path).toBe('invoices/2026/NEO-2026-0001.pdf')
+
+    // The foreign bytes are kept, under a .conflict-* name next to it.
+    const conflicts = fs.readdirSync(dir).filter((f) => f.startsWith('NEO-2026-0001.pdf.conflict-'))
+    expect(conflicts).toHaveLength(1)
+    expect(conflicts[0]).toMatch(/^NEO-2026-0001\.pdf\.conflict-20261104-103000-[0-9a-f]{8}$/)
+    expect(fs.readFileSync(path.join(dir, conflicts[0]), 'utf8')).toBe('someone else')
+
+    // The file at the expected path is now this invoice's PDF.
+    const written = fs.readFileSync(abs)
+    expect(written.subarray(0, 4).toString('latin1')).toBe('%PDF')
+    expect(written.toString('latin1')).not.toBe('someone else')
+
+    expect(res.body.pdfWarning).toBe(
+      `A different file was already saved under this invoice number and has been kept as ${conflicts[0]}. ` +
+        'Check that only one copy of NeoInsent uses this data folder.',
     )
+    expect(logged).toHaveBeenCalledWith(
+      `CONFLICT: A different file was at invoices/2026/NEO-2026-0001.pdf after NEO-2026-0001 was issued — moved it to ${conflicts[0]}. ` +
+        'Two copies of the app or two databases may be sharing this data folder.',
+    )
+    expect(logged.mock.calls.flat().join(' ')).not.toMatch(/already existed on disk before/)
+
+    // The conflict copy does not count as an issued number: the next invoice gets 0002.
+    const next = await createDraft(server)
+    const second = await finalize(server, next.invoiceId)
+    expect(second.status).toBe(200)
+    expect(second.body.invoice).toMatchObject({ invoice_number: 'NEO-2026-0002' })
+    expect(second.body.pdfWarning).toBeUndefined()
+  })
+
+  it('falls back to pdfError when writing after the move-aside fails too', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server)
+    const dir = path.join(dataDir, 'invoices', '2026')
+    const abs = path.join(dir, 'NEO-2026-0001.pdf')
+    const actualRender = vi.mocked(invoicePdf.renderInvoicePdf).getMockImplementation()!
+    vi.mocked(invoicePdf.renderInvoicePdf)
+      .mockImplementationOnce(async (model) => {
+        fs.mkdirSync(dir, { recursive: true })
+        fs.writeFileSync(abs, 'someone else')
+        return actualRender(model)
+      })
+      .mockRejectedValueOnce(new Error('render failed'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(200)
+    expect(res.body.pdfError).toMatch(/could not be created yet/)
+    expect(res.body.pdfWarning).toBeUndefined()
+    expect(res.body.invoice).toMatchObject({ pdf_path: null })
+    expect(fs.existsSync(abs)).toBe(false)
+    const conflicts = fs.readdirSync(dir).filter((f) => f.includes('.conflict-'))
+    expect(fs.readFileSync(path.join(dir, conflicts[0]), 'utf8')).toBe('someone else')
   })
 
   it('answers 200 with pdfError when recording the PDF fails, and the written PDF is accepted later', async () => {

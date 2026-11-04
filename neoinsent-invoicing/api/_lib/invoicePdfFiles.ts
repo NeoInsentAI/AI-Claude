@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { backupDb, fileTimestamp, getDataDir, getDb, mkdirPrivate } from './db'
@@ -67,6 +67,28 @@ export async function writeInvoicePdf(
     throw error
   }
   return abs
+}
+
+/**
+ * Moves the file at `relPath` aside to `<name>.conflict-<YYYYMMDD-HHmmss>-<8 hex>` in the same
+ * folder and returns that new file name. Used when finalize finds a file at the path of a number it
+ * just issued: that file is not this invoice's PDF, so it must neither be served as it nor be
+ * destroyed. link() refuses an existing target, so an earlier conflict copy is never clobbered.
+ * These names don't match the invoice-number scan, so they never block or skip a number.
+ */
+export async function moveAsideConflictingPdf(relPath: string, now: Date = new Date()): Promise<string> {
+  const abs = resolveInDataDir(relPath)
+  for (let attempt = 0; ; attempt++) {
+    const name = `${path.basename(abs)}.conflict-${fileTimestamp(now)}-${randomBytes(4).toString('hex')}`
+    try {
+      await fs.promises.link(abs, path.join(path.dirname(abs), name))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code === 'EEXIST' && attempt < 5) continue
+      throw error
+    }
+    await fs.promises.unlink(abs)
+    return name
+  }
 }
 
 export type EnsurePdfResult =

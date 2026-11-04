@@ -12,6 +12,7 @@ import * as invoicePdfModel from './invoicePdfModel'
 import {
   backupBeforeFinalize,
   ensureInvoicePdf,
+  moveAsideConflictingPdf,
   pdfRelPath,
   writeInvoicePdf,
 } from './invoicePdfFiles'
@@ -136,6 +137,41 @@ describe('writeInvoicePdf', () => {
     expect(fs.readFileSync(abs).subarray(0, 4).toString('latin1')).toBe('%PDF')
     expect(fs.statSync(abs).mode & 0o777).toBe(0o600)
     expect(filesUnder(path.join(tmpDir, 'invoices')).filter((f) => f.endsWith('.tmp'))).toEqual([])
+  })
+})
+
+describe('moveAsideConflictingPdf', () => {
+  const rel = 'invoices/2026/NEO-2026-0001.pdf'
+  const when = new Date(2026, 10, 4, 10, 30, 5)
+
+  it('renames the file to <name>.conflict-<timestamp>-<8 hex> in the same folder, bytes intact', async () => {
+    const abs = path.join(tmpDir, rel)
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, 'someone else')
+
+    const moved = await moveAsideConflictingPdf(rel, when)
+
+    expect(moved).toMatch(/^NEO-2026-0001\.pdf\.conflict-20261104-103005-[0-9a-f]{8}$/)
+    expect(fs.existsSync(abs)).toBe(false)
+    expect(fs.readFileSync(path.join(path.dirname(abs), moved), 'utf8')).toBe('someone else')
+  })
+
+  it('gives two conflicts in a row distinct names and never clobbers the earlier one', async () => {
+    const abs = path.join(tmpDir, rel)
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, 'first')
+    const first = await moveAsideConflictingPdf(rel, when)
+    fs.writeFileSync(abs, 'second')
+    const second = await moveAsideConflictingPdf(rel, when)
+
+    expect(second).not.toBe(first)
+    expect(fs.readFileSync(path.join(path.dirname(abs), first), 'utf8')).toBe('first')
+    expect(fs.readFileSync(path.join(path.dirname(abs), second), 'utf8')).toBe('second')
+    expect(fs.existsSync(abs)).toBe(false)
+  })
+
+  it('refuses paths outside the data folder', async () => {
+    await expect(moveAsideConflictingPdf('../outside.pdf', when)).rejects.toThrow(/outside the data folder/)
   })
 })
 

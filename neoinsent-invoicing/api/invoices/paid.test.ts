@@ -86,15 +86,24 @@ describe('POST /api/invoices/:id/paid', () => {
     const server = app()
     const id = await createFinal(server)
 
+    const finalizedAt = (await getInvoice(id))?.updated_at
+
+    vi.setSystemTime(new Date(2026, 10, 5, 9, 0))
     const paid = await setPaid(server, id, { paid: true })
     expect(paid.status).toBe(200)
     expect(paid.body.invoice).toMatchObject({ id, status: 'final', paid: true })
-    expect((await getInvoice(id))?.paid).toBe(true)
+    const afterPaid = await getInvoice(id)
+    expect(afterPaid?.paid).toBe(true)
+    expect(afterPaid?.updated_at).toBe(new Date(2026, 10, 5, 9, 0).toISOString())
+    expect(afterPaid?.updated_at).not.toBe(finalizedAt)
 
+    vi.setSystemTime(new Date(2026, 10, 6, 14, 15))
     const unpaid = await setPaid(server, id, { paid: false })
     expect(unpaid.status).toBe(200)
     expect(unpaid.body.invoice).toMatchObject({ paid: false })
-    expect((await getInvoice(id))?.paid).toBe(false)
+    const afterUnpaid = await getInvoice(id)
+    expect(afterUnpaid?.paid).toBe(false)
+    expect(afterUnpaid?.updated_at).toBe(new Date(2026, 10, 6, 14, 15).toISOString())
   })
 
   it('answers 409 for a draft', async () => {

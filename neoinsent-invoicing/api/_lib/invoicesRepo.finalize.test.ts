@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDb, getDb } from './db'
 import { formatCurrency } from '../../src/lib/format'
 import { createClient, updateClient, type Client, type NewClient } from './clientsRepo'
@@ -341,6 +341,25 @@ describe('setInvoicePaid', () => {
     expect(unpaid).toMatchObject({ paid: false })
     expect(storedRow(draft.id)).toMatchObject({ paid: 0 })
     expect((await getInvoice(draft.id))?.paid).toBe(false)
+  })
+
+  it('stamps updated_at with the time of each toggle, true then false', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    await finalizeDraftInvoice(draft.id, NOW)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      const paidAt = new Date(2026, 10, 5, 9, 0)
+      vi.setSystemTime(paidAt)
+      expect(await setInvoicePaid(draft.id, true)).toMatchObject({ paid: true, updated_at: paidAt.toISOString() })
+      expect(storedRow(draft.id)).toMatchObject({ paid: 1, updated_at: paidAt.toISOString() })
+
+      const unpaidAt = new Date(2026, 10, 6, 14, 15)
+      vi.setSystemTime(unpaidAt)
+      expect(await setInvoicePaid(draft.id, false)).toMatchObject({ paid: false, updated_at: unpaidAt.toISOString() })
+      expect(storedRow(draft.id)).toMatchObject({ paid: 0, updated_at: unpaidAt.toISOString() })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it("returns 'not_final' for a draft, leaving it untouched", async () => {
