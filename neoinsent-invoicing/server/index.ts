@@ -3,7 +3,7 @@
  * Listens on 127.0.0.1 only, so nothing outside this computer can reach it.
  *
  *   npm start                 build the frontend, then run this
- *   npx tsx server/index.ts   run the server only (pair with `npm run dev` for development)
+ *   npm run server            run the server only (pair with `npm run dev` for development)
  */
 import http from 'node:http'
 

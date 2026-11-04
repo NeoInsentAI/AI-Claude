@@ -169,7 +169,7 @@ describe('InvoiceFormPage — new', () => {
     await userEvent.type(screen.getByLabelText('Description 1'), '  Consulting ')
     await userEvent.clear(screen.getByLabelText('Unit price 1'))
     await userEvent.type(screen.getByLabelText('Unit price 1'), '100,50')
-    await userEvent.type(screen.getByLabelText('Notes'), 'Thank you')
+    await userEvent.type(screen.getByLabelText('Notes'), '  Thank you ')
     await userEvent.type(screen.getByLabelText('Service date / period (leverdatum)'), '  October 2026 ')
     await userEvent.click(saveButton())
 

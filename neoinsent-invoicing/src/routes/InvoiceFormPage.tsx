@@ -143,7 +143,7 @@ export function InvoiceFormPage({ mode }: Props) {
       vat_treatment: treatment,
       issue_date: issueDate,
       due_date: dueDate,
-      notes: notes.trim() === '' ? null : notes,
+      notes: trimmedOrNull(notes),
       service_period: trimmedOrNull(servicePeriod),
       items: itemsForApi(rows),
     })

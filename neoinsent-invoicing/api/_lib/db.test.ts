@@ -13,6 +13,7 @@ import {
   getDb,
   getInvoicesDir,
   MIGRATIONS,
+  MUTABLE_AFTER_FINAL,
   nextInvoiceNumber,
   openDb,
   rotateBackups,
@@ -114,6 +115,30 @@ function userVersion(d: DatabaseSync): number {
   return (d.prepare('pragma user_version').get() as { user_version: number }).user_version
 }
 
+/** Creates a v1 database file (schema v1, one client and one draft invoice) at `file`. */
+function createV1Db(file: string): void {
+  const v1 = new DatabaseSync(file)
+  MIGRATIONS[0](v1)
+  v1.exec('pragma user_version = 1')
+  v1.prepare(
+    `insert into clients (id, name, email, address_line, postal_code, city, country, created_at)
+     values ('c1', 'Acme', 'a@acme.nl', 'Straat 1', '1000 AA', 'Amsterdam', 'NL', ?)`,
+  ).run(now)
+  v1.prepare(
+    `insert into invoices (id, client_id, language, vat_treatment, issue_date, due_date, created_at)
+     values ('i1', 'c1', 'nl', 'nl_standard', '2026-11-03', '2026-12-03', ?)`,
+  ).run(now)
+  v1.close()
+}
+
+const PRE_MIGRATION_FILE = /^pre-migration-v1-to-v2-\d{8}-\d{6}(-\d+)?\.db$/
+
+function preMigrationBackups(dir: string): string[] {
+  const backups = path.join(dir, 'backups')
+  if (!fs.existsSync(backups)) return []
+  return fs.readdirSync(backups).filter((f) => f.startsWith('pre-migration-'))
+}
+
 describe('data dir', () => {
   it('honours NEOINSENT_DATA_DIR', () => {
     process.env.NEOINSENT_DATA_DIR = path.join(tmpDir, 'data')
@@ -182,18 +207,7 @@ describe('openDb schema', () => {
 
   it('upgrades a v1 database to v2, keeping its rows and adding service_period', () => {
     const file = path.join(tmpDir, 'v1.db')
-    const v1 = new DatabaseSync(file)
-    MIGRATIONS[0](v1)
-    v1.exec('pragma user_version = 1')
-    v1.prepare(
-      `insert into clients (id, name, email, address_line, postal_code, city, country, created_at)
-       values ('c1', 'Acme', 'a@acme.nl', 'Straat 1', '1000 AA', 'Amsterdam', 'NL', ?)`,
-    ).run(now)
-    v1.prepare(
-      `insert into invoices (id, client_id, language, vat_treatment, issue_date, due_date, created_at)
-       values ('i1', 'c1', 'nl', 'nl_standard', '2026-11-03', '2026-12-03', ?)`,
-    ).run(now)
-    v1.close()
+    createV1Db(file)
 
     const upgraded = openDb(file)
     try {
@@ -205,6 +219,46 @@ describe('openDb schema', () => {
     } finally {
       upgraded.close()
     }
+  })
+
+  it('backs up a v1 database to backups/pre-migration-v1-to-v2-<timestamp>.db before migrating', () => {
+    const dir = path.join(tmpDir, 'upgrade')
+    fs.mkdirSync(dir)
+    const file = path.join(dir, 'neoinsent.db')
+    createV1Db(file)
+
+    openDb(file).close()
+
+    const backups = preMigrationBackups(dir)
+    expect(backups).toHaveLength(1)
+    expect(backups[0]).toMatch(PRE_MIGRATION_FILE)
+    expect(fs.statSync(path.join(dir, 'backups')).mode & 0o777).toBe(0o700)
+    const copy = new DatabaseSync(path.join(dir, 'backups', backups[0]), { readOnly: true })
+    try {
+      expect(userVersion(copy)).toBe(1)
+      expect(copy.prepare('select id from clients').all()).toEqual([{ id: 'c1' }])
+      expect(copy.prepare('select id from invoices').all()).toEqual([{ id: 'i1' }])
+      // The copy really is pre-migration: no v2 column.
+      const cols = (copy.prepare('pragma table_info(invoices)').all() as { name: string }[]).map(
+        (c) => c.name,
+      )
+      expect(cols).not.toContain('service_period')
+    } finally {
+      copy.close()
+    }
+
+    // Reopening the now up-to-date database makes no further backup.
+    openDb(file).close()
+    expect(preMigrationBackups(dir)).toHaveLength(1)
+  })
+
+  it('makes no pre-migration backup for a fresh or up-to-date database', () => {
+    // beforeEach created tmpDir/test.db from version 0.
+    expect(preMigrationBackups(tmpDir)).toEqual([])
+    db.close()
+    db = openDb(path.join(tmpDir, 'test.db'))
+    expect(preMigrationBackups(tmpDir)).toEqual([])
+    expect(fs.existsSync(path.join(tmpDir, 'backups'))).toBe(false)
   })
 
   it('is idempotent when reopening the same file', () => {
@@ -369,6 +423,71 @@ describe('final invoices are immutable', () => {
     ).toEqual({ paid: 1, sent_at: now, pdf_path: 'invoices/2026/2026-001.pdf' })
   })
 
+  it('locks every invoices column except MUTABLE_AFTER_FINAL (guards future migrations)', () => {
+    const otherClientId = insertClient()
+    const later = '2027-01-01T00:00:00.000Z'
+    // A valid replacement value per column, so a rejection comes from the trigger, not a CHECK.
+    // A new invoices column must be added here AND either locked by the trigger or listed in
+    // MUTABLE_AFTER_FINAL — otherwise this test fails.
+    const replacement: Record<string, string | number> = {
+      invoice_number: '2026-999',
+      client_id: otherClientId,
+      status: 'draft',
+      language: 'en',
+      vat_treatment: 'eu_reverse_charge',
+      issue_date: '2026-01-01',
+      due_date: '2026-01-31',
+      notes: 'changed',
+      subtotal_cents: 1,
+      vat_amount_cents: 1,
+      total_cents: 1,
+      client_snapshot: '{"x":1}',
+      pdf_path: 'invoices/2026/changed.pdf',
+      paid: 1,
+      sent_at: later,
+      created_at: later,
+      updated_at: later,
+      finalized_at: later,
+      service_period: 'October 2026',
+    }
+    const columns = (db.prepare('pragma table_info(invoices)').all() as { name: string }[]).map(
+      (c) => c.name,
+    )
+    const mutable = new Set<string>(MUTABLE_AFTER_FINAL)
+    let n = 0
+    const freshFinal = () => {
+      n += 1
+      return insertInvoice({
+        clientId: insertClient(),
+        status: 'final',
+        invoiceNumber: `2026-${String(n).padStart(3, '0')}`,
+        snapshot: '{}',
+      })
+    }
+
+    const unclassified = columns.filter((c) => !(c in replacement) && c !== 'id')
+    expect(unclassified, 'invoices columns with no replacement value in this test').toEqual([])
+    for (const m of MUTABLE_AFTER_FINAL) expect(columns, m).toContain(m)
+
+    const unlocked: string[] = []
+    const lockedButListedMutable: string[] = []
+    for (const column of columns) {
+      if (column === 'id') continue // primary key; foreign keys from invoice_items protect it
+      const id = freshFinal()
+      let rejected = false
+      try {
+        db.prepare(`update invoices set ${column} = ? where id = ?`).run(replacement[column], id)
+      } catch (err) {
+        expect(String(err), column).toMatch(/final invoices cannot be changed/)
+        rejected = true
+      }
+      if (mutable.has(column) && rejected) lockedButListedMutable.push(column)
+      if (!mutable.has(column) && !rejected) unlocked.push(column)
+    }
+    expect(unlocked, 'columns of a final invoice the trigger does not lock').toEqual([])
+    expect(lockedButListedMutable, 'MUTABLE_AFTER_FINAL columns the trigger rejects').toEqual([])
+  })
+
   it('locks the items of a final invoice', () => {
     const { invoiceId, itemId } = finalInvoiceWithItem()
     expect(() => insertItem(invoiceId, 1)).toThrow(/items of a final invoice cannot be changed/)
@@ -459,6 +578,30 @@ describe('backups', () => {
     const before = fs.statSync(written).mtimeMs
     expect(rotateBackups(dataDir, 3, db)).toBe(written)
     expect(fs.statSync(written).mtimeMs).toBe(before)
+  })
+
+  it('rotateBackups never deletes pre-migration backups', () => {
+    const dataDir = path.join(tmpDir, 'data')
+    fs.mkdirSync(dataDir)
+    const file = path.join(dataDir, 'neoinsent.db')
+    createV1Db(file)
+    const appDb = openDb(file)
+    try {
+      const [preMigration] = preMigrationBackups(dataDir)
+      expect(preMigration).toMatch(PRE_MIGRATION_FILE)
+      const backupsDir = path.join(dataDir, 'backups')
+      for (const d of ['2026-01-01', '2026-02-01']) {
+        fs.writeFileSync(path.join(backupsDir, `neoinsent-${d}.db`), 'old')
+      }
+
+      const written = rotateBackups(dataDir, 1, appDb)
+
+      expect(fs.readdirSync(backupsDir).sort()).toEqual(
+        [path.basename(written), preMigration].sort(),
+      )
+    } finally {
+      appDb.close()
+    }
   })
 })
 

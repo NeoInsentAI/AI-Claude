@@ -66,8 +66,9 @@ function expectPdf(buffer: Buffer) {
 }
 
 /**
- * The text runs drawn in the PDF, one per TJ operator. The standard Helvetica font is written as
- * hex-encoded WinAnsi strings in deflated content streams.
+ * The text runs drawn in the PDF: one entry per text-show (TJ) operator, so a long value that
+ * wraps over several lines comes back split across several entries. The standard Helvetica font
+ * is written as hex-encoded WinAnsi strings in deflated content streams.
  */
 function textRuns(buffer: Buffer): string[] {
   const runs: string[] = []

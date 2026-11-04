@@ -8,6 +8,7 @@ import { DatabaseSync } from 'node:sqlite'
  * (default `~/NeoInsent Invoicing`, override with NEOINSENT_DATA_DIR):
  *   neoinsent.db         — the database
  *   invoices/            — finalized invoice PDFs
+ *   backups/             — daily backups and pre-migration copies
  *
  * Conventions: ids are UUID strings from crypto.randomUUID(); money is INTEGER cents;
  * quantities are INTEGER hundredths; dates are 'YYYY-MM-DD' TEXT; timestamps ISO TEXT.
@@ -36,6 +37,14 @@ const FINAL_INVOICE_LOCKED_COLUMNS_V1 = [
 
 /** v2 adds service_period (leverdatum), which is part of the legal record too. */
 const FINAL_INVOICE_LOCKED_COLUMNS_V2 = [...FINAL_INVOICE_LOCKED_COLUMNS_V1, 'service_period']
+
+/**
+ * The only `invoices` columns that may still change once an invoice is final. Every other column
+ * is locked by the invoices_final_no_update trigger (`id` is the primary key, protected by the
+ * foreign keys that reference it). A migration that adds an invoices column must either lock it
+ * in a new trigger or add it here; db.test.ts fails until it is classified.
+ */
+export const MUTABLE_AFTER_FINAL = ['id', 'paid', 'sent_at', 'pdf_path', 'updated_at'] as const
 
 /** The trigger that rejects changes to the locked columns of a final invoice. */
 function finalInvoiceNoUpdateTrigger(lockedColumns: readonly string[]): string {
@@ -217,6 +226,30 @@ function migrate(db: DatabaseSync): void {
   })
 }
 
+function timestamp(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-` +
+    `${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`
+  )
+}
+
+/**
+ * Before migrating an existing database, copies it to
+ * `<db folder>/backups/pre-migration-v<from>-to-v<to>-YYYYMMDD-HHmmss.db`. These files do not
+ * match the daily BACKUP_FILE pattern, so rotateBackups never deletes them.
+ */
+function backupBeforeMigration(db: DatabaseSync, filePath: string): void {
+  const from = userVersion(db)
+  if (from <= 0 || from >= MIGRATIONS.length) return
+  const dir = path.join(path.dirname(filePath), 'backups')
+  mkdirPrivate(dir)
+  const base = `pre-migration-v${from}-to-v${MIGRATIONS.length}-${timestamp(new Date())}`
+  let dest = path.join(dir, `${base}.db`)
+  for (let i = 2; fs.existsSync(dest); i++) dest = path.join(dir, `${base}-${i}.db`)
+  backupDb(db, dest)
+}
+
 /** Opens a specific database file, configures it and brings the schema up to date. */
 export function openDb(filePath: string): DatabaseSync {
   const db = new DatabaseSync(filePath)
@@ -227,6 +260,7 @@ export function openDb(filePath: string): DatabaseSync {
     db.exec('pragma journal_mode = DELETE')
     db.exec('pragma synchronous = FULL')
     db.exec('pragma foreign_keys = ON')
+    backupBeforeMigration(db, filePath)
     migrate(db)
   } catch (err) {
     db.close()
