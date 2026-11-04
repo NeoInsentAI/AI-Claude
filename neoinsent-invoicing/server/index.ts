@@ -1,5 +1,5 @@
 /**
- * Starts NeoInsent Invoicing on this Mac: http://localhost:5174 (override with PORT).
+ * Starts NeoInsent Invoicing on this Mac: http://127.0.0.1:5174 (override with PORT).
  * Listens on 127.0.0.1 only, so nothing outside this computer can reach it.
  *
  *   npm start                 build the frontend, then run this
@@ -39,7 +39,7 @@ if (!/^\d+$/.test(rawPort) || port < 1 || port > 65535) fail(`PORT must be a num
 const { createApp } = await import('./app')
 const { closeDb, getDataDir, getDb, rotateBackups } = await import('../api/_lib/db')
 
-const url = `http://localhost:${port}`
+const url = `http://127.0.0.1:${port}`
 const server = http.createServer(createApp({ port }))
 const HOUR = 60 * 60 * 1000
 
@@ -57,7 +57,6 @@ function backup(dataDir: string, log = true): void {
 async function isNeoInsentRunning(): Promise<boolean> {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/api/health`, {
-      headers: { Host: `localhost:${port}` },
       signal: AbortSignal.timeout(2000),
     })
     const body = (await res.json()) as { app?: unknown }

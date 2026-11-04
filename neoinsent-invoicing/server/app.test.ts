@@ -246,7 +246,7 @@ describe('localhost-only protections', () => {
   it('rejects a foreign Host header with 403 (DNS rebinding)', async () => {
     const res = await request(app()).get('/api/clients').set('Host', 'evil.example:5174')
     expect(res.status).toBe(403)
-    expect(res.body).toEqual({ error: expect.any(String) })
+    expect(res.body).toEqual({ error: `Forbidden: open the app at http://127.0.0.1:${PORT}` })
   })
 
   it('rejects the right host on the wrong port', async () => {

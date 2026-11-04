@@ -78,7 +78,7 @@ function localhostOnly(port: number): RequestHandler {
   return (req, res, next) => {
     const host = req.headers.host?.toLowerCase()
     if (!host || !hosts.has(host)) {
-      res.status(403).json({ error: 'Forbidden: open the app at http://localhost:' + port })
+      res.status(403).json({ error: `Forbidden: open the app at http://127.0.0.1:${port}` })
       return
     }
     const origin = req.headers.origin
