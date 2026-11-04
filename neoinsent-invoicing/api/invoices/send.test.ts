@@ -10,6 +10,7 @@ import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDb, getDataDir } from '../_lib/db'
 import { getInvoice, markInvoiceSent } from '../_lib/invoicesRepo'
+import { NOT_CONFIGURED_MESSAGE } from '../_lib/mailer'
 import { createApp } from '../../server/app'
 
 vi.mock('nodemailer', () => ({ default: { createTransport: vi.fn() } }))
@@ -132,7 +133,7 @@ describe('GET /api/email/status', () => {
   it('reports not configured when the app password is missing', async () => {
     delete process.env.GMAIL_APP_PASSWORD
     const res = await request(app()).get('/api/email/status').set('Host', HOST)
-    expect(res.body).toEqual({ configured: false, from: null })
+    expect(res.body).toEqual({ configured: false, from: null, message: NOT_CONFIGURED_MESSAGE })
   })
 
   it('answers 405 to anything but GET', async () => {
@@ -345,6 +346,7 @@ describe('POST /api/invoices/:id/send', () => {
     expect(res.body.error).toBe(
       "The email was sent to billing@acme.nl, but the app could not record it. Don't send it again.",
     )
+    expect(res.body.emailSent).toBe(true)
     expect(errorLog).toHaveBeenCalled()
   })
 
@@ -356,5 +358,6 @@ describe('POST /api/invoices/:id/send', () => {
     expect(sendMail).toHaveBeenCalledTimes(1)
     expect(res.status).toBe(500)
     expect(res.body.error).toMatch(/was sent to billing@acme\.nl.*Don't send it again\./)
+    expect(res.body.emailSent).toBe(true)
   })
 })

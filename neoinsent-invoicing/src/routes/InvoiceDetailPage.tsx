@@ -37,13 +37,14 @@ interface EmailPreview {
 type EmailPanel =
   | { state: 'closed' }
   | { state: 'loading' }
-  | { state: 'not_configured' }
+  | { state: 'not_configured'; message: string }
   | { state: 'error'; message: string }
+  // The email went out but the server could not record it: no form, so it can't be sent twice.
+  | { state: 'sent_unrecorded'; message: string }
   | { state: 'ready'; to: string }
 
-// Same wording as the server's NOT_CONFIGURED_MESSAGE (api/_lib/mailer.ts).
-const EMAIL_NOT_CONFIGURED =
-  "Email isn't set up yet — add your Gmail app password to the .env file (see README)."
+const SNAPSHOT_MISSING =
+  "This invoice's saved client details are missing — the database may be damaged. Restore from a backup."
 const FINALIZE_CONFIRM =
   "Finalize this invoice? It gets the next invoice number, today's date (the due date moves with it) and can no longer be changed."
 
@@ -73,11 +74,15 @@ function StatusPill({ invoice }: { invoice: InvoiceDetail }) {
   )
 }
 
-function ClientBlock({ client }: { client: ClientDetails | null }) {
+function ClientBlock({ client, snapshotMissing }: { client: ClientDetails | null; snapshotMissing: boolean }) {
   return (
     <section className="card" aria-labelledby="invoice-client-heading">
       <h2 id="invoice-client-heading">Client</h2>
-      {client ? (
+      {snapshotMissing ? (
+        <p role="alert" className="error">
+          {SNAPSHOT_MISSING}
+        </p>
+      ) : client ? (
         <>
           <p style={{ color: 'var(--ink)', fontWeight: 600, margin: 0 }}>{client.name}</p>
           {client.contact_person && <p style={{ margin: 0 }}>{client.contact_person}</p>}
@@ -127,6 +132,10 @@ export function InvoiceDetailPage() {
   const sendInFlight = useRef(false)
   // Identifies the latest email-panel load, so a cancelled or superseded load can't open the form.
   const emailLoad = useRef(0)
+  const finalizeButton = useRef<HTMLButtonElement>(null)
+  const confirmFinalizeButton = useRef<HTMLButtonElement>(null)
+  // Set when Cancel closes the confirmation, so focus goes back to the Finalize button.
+  const refocusFinalize = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -149,6 +158,30 @@ export function InvoiceDetailPage() {
       cancelled = true
     }
   }, [apiBase])
+
+  useEffect(() => {
+    if (confirmingFinalize) {
+      confirmFinalizeButton.current?.focus()
+    } else if (refocusFinalize.current) {
+      refocusFinalize.current = false
+      finalizeButton.current?.focus()
+    }
+  }, [confirmingFinalize])
+
+  function cancelFinalize() {
+    refocusFinalize.current = true
+    setConfirmingFinalize(false)
+  }
+
+  /** Re-reads the invoice (e.g. after a send whose result the server could not record). */
+  async function refreshInvoice() {
+    try {
+      const { invoice: loaded } = await apiFetch<{ invoice: InvoiceDetail }>(apiBase)
+      setInvoice(loaded)
+    } catch {
+      // Keep showing what we have; the alert already explains what happened.
+    }
+  }
 
   async function handleFinalize() {
     if (finalizeInFlight.current) return
@@ -203,10 +236,10 @@ export function InvoiceDetailPage() {
     setSendError(null)
     setSentTo(null)
     try {
-      const status = await apiFetch<{ configured: boolean }>('/api/email/status')
+      const status = await apiFetch<{ configured: boolean; message?: string }>('/api/email/status')
       if (load !== emailLoad.current) return
       if (!status.configured) {
-        setEmailPanel({ state: 'not_configured' })
+        setEmailPanel({ state: 'not_configured', message: status.message ?? 'Email is not set up yet.' })
         return
       }
       const preview = await apiFetch<EmailPreview>(`${apiBase}/email-preview`)
@@ -234,7 +267,15 @@ export function InvoiceDetailPage() {
       setSentTo(res.sentTo)
       closeEmailPanel()
     } catch (err) {
-      setSendError(errorMessage(err))
+      const body = err instanceof ApiError ? (err.body as { emailSent?: unknown } | null) : null
+      if (body?.emailSent === true) {
+        // The email did go out: drop the form so it can't be sent again, and say so.
+        emailLoad.current += 1
+        setEmailPanel({ state: 'sent_unrecorded', message: errorMessage(err) })
+        void refreshInvoice()
+      } else {
+        setSendError(errorMessage(err))
+      }
     } finally {
       sendInFlight.current = false
       setSending(false)
@@ -282,8 +323,10 @@ export function InvoiceDetailPage() {
     )
   }
 
-  const client = clientForInvoice(invoice)
   const isFinal = invoice.status === 'final'
+  // Never fall back to the live client for a final invoice: it would show details that weren't invoiced.
+  const snapshotMissing = isFinal && !invoice.client_snapshot
+  const client = snapshotMissing ? null : clientForInvoice(invoice)
 
   return (
     <div>
@@ -303,6 +346,7 @@ export function InvoiceDetailPage() {
               Edit
             </Link>
             <button
+              ref={finalizeButton}
               type="button"
               className="btn btn-primary"
               onClick={() => {
@@ -328,6 +372,7 @@ export function InvoiceDetailPage() {
             <button
               type="button"
               className="btn btn-primary"
+              disabled={sending}
               aria-expanded={emailPanel.state !== 'closed'}
               onClick={() => (emailPanel.state === 'closed' ? openEmailPanel() : closeEmailPanel())}
             >
@@ -338,24 +383,28 @@ export function InvoiceDetailPage() {
       </div>
 
       {!isFinal && confirmingFinalize && (
-        <section className="card" aria-labelledby="finalize-confirm-text" style={{ marginBottom: 16 }}>
-          <p id="finalize-confirm-text" style={{ color: 'var(--ink)' }}>
-            {FINALIZE_CONFIRM}
-          </p>
+        <div role="group" aria-label="Confirm finalize" className="card" style={{ marginBottom: 16 }}>
+          <p style={{ color: 'var(--ink)' }}>{FINALIZE_CONFIRM}</p>
           <div style={row}>
-            <button type="button" className="btn btn-primary" disabled={finalizing} onClick={handleFinalize}>
+            <button
+              ref={confirmFinalizeButton}
+              type="button"
+              className="btn btn-primary"
+              disabled={finalizing}
+              onClick={handleFinalize}
+            >
               {finalizing ? 'Finalizing…' : 'Finalize'}
             </button>
             <button
               type="button"
               className="btn"
               disabled={finalizing}
-              onClick={() => setConfirmingFinalize(false)}
+              onClick={cancelFinalize}
             >
               Cancel
             </button>
           </div>
-        </section>
+        </div>
       )}
 
       {finalizeError && (
@@ -388,8 +437,8 @@ export function InvoiceDetailPage() {
         <section className="card" aria-labelledby="email-panel-heading" style={{ marginBottom: 16 }}>
           <h2 id="email-panel-heading">Email to client</h2>
           {emailPanel.state === 'loading' && <p role="status">Loading…</p>}
-          {emailPanel.state === 'not_configured' && <p>{EMAIL_NOT_CONFIGURED}</p>}
-          {emailPanel.state === 'error' && (
+          {emailPanel.state === 'not_configured' && <p>{emailPanel.message}</p>}
+          {(emailPanel.state === 'error' || emailPanel.state === 'sent_unrecorded') && (
             <p role="alert" className="error">
               {emailPanel.message}
             </p>
@@ -444,7 +493,7 @@ export function InvoiceDetailPage() {
       )}
 
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-        <ClientBlock client={client} />
+        <ClientBlock client={client} snapshotMissing={snapshotMissing} />
         <section className="card" aria-labelledby="invoice-dates-heading">
           <h2 id="invoice-dates-heading">Dates</h2>
           <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 16px', margin: 0 }}>

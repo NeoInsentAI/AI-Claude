@@ -21,6 +21,14 @@ describe('apiFetch', () => {
     await expect(apiFetch('/api/thing')).resolves.toEqual({ hello: 'world' })
   })
 
+  it('keeps the parsed error body on the ApiError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: 'Sent', emailSent: true }, 500)))
+    const err = await apiFetch('/api/thing').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(ApiError)
+    expect((err as ApiError).status).toBe(500)
+    expect((err as ApiError).body).toEqual({ error: 'Sent', emailSent: true })
+  })
+
   it('throws ApiError with the server message on failure', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ error: 'Bad input' }, 400)))
     await expect(apiFetch('/api/thing')).rejects.toThrow('Bad input')

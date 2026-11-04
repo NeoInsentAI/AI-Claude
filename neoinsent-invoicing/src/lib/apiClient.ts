@@ -1,9 +1,12 @@
 export class ApiError extends Error {
   status: number
+  /** The parsed JSON response body, if there was one (null otherwise). */
+  body: unknown
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body: unknown = null) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
@@ -32,7 +35,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   }
   if (!res.ok) {
     const msg = (data as { error?: unknown } | null)?.error
-    throw new ApiError(typeof msg === 'string' ? msg : `Request failed (${res.status})`, res.status)
+    throw new ApiError(typeof msg === 'string' ? msg : `Request failed (${res.status})`, res.status, data)
   }
   if (data === null && res.status !== 204) {
     throw new ApiError('Unexpected response from server', res.status)

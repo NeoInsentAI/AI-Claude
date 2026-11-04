@@ -186,15 +186,15 @@ describe('InvoiceDetailPage — draft', () => {
     await user.click(await screen.findByRole('button', { name: 'Finalize' }))
     expect(callsTo(fetchMock, 'POST', `${GET_URL}/finalize`)).toHaveLength(0)
 
-    const confirm = screen.getByRole('region', { name: /Finalize this invoice\?/ })
+    const confirm = screen.getByRole('group', { name: 'Confirm finalize' })
     expect(confirm).toHaveTextContent(
       "Finalize this invoice? It gets the next invoice number, today's date (the due date moves with it) and can no longer be changed.",
     )
     await user.click(within(confirm).getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByRole('region', { name: /Finalize this invoice\?/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Confirm finalize' })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Finalize' }))
-    const panel = screen.getByRole('region', { name: /Finalize this invoice\?/ })
+    const panel = screen.getByRole('group', { name: 'Confirm finalize' })
     await user.dblClick(within(panel).getByRole('button', { name: 'Finalize' }))
     const busy = within(panel).getByRole('button', { name: 'Finalizing…' })
     expect(busy).toBeDisabled()
@@ -205,7 +205,7 @@ describe('InvoiceDetailPage — draft', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'NEO-2026-0001' })).toBeInTheDocument()
     expect(screen.getByTestId('status-pill')).toHaveTextContent('Finalized')
     expect(screen.getByText('04-11-2026')).toBeInTheDocument()
-    expect(screen.queryByRole('region', { name: /Finalize this invoice\?/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Confirm finalize' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Open PDF' })).toBeInTheDocument()
   })
 
@@ -221,7 +221,7 @@ describe('InvoiceDetailPage — draft', () => {
     const user = userEvent.setup()
     renderAt()
     await user.click(await screen.findByRole('button', { name: 'Finalize' }))
-    await user.click(within(screen.getByRole('region', { name: /Finalize this invoice\?/ })).getByRole('button', { name: 'Finalize' }))
+    await user.click(within(screen.getByRole('group', { name: 'Confirm finalize' })).getByRole('button', { name: 'Finalize' }))
     expect(await screen.findByText(warning)).toHaveAttribute('role', 'status')
   })
 
@@ -237,7 +237,7 @@ describe('InvoiceDetailPage — draft', () => {
     const user = userEvent.setup()
     renderAt()
     await user.click(await screen.findByRole('button', { name: 'Finalize' }))
-    await user.click(within(screen.getByRole('region', { name: /Finalize this invoice\?/ })).getByRole('button', { name: 'Finalize' }))
+    await user.click(within(screen.getByRole('group', { name: 'Confirm finalize' })).getByRole('button', { name: 'Finalize' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(pdfError)
     expect(screen.getByRole('heading', { level: 1, name: 'NEO-2026-0001' })).toBeInTheDocument()
   })
@@ -252,11 +252,39 @@ describe('InvoiceDetailPage — draft', () => {
     const user = userEvent.setup()
     renderAt()
     await user.click(await screen.findByRole('button', { name: 'Finalize' }))
-    await user.click(within(screen.getByRole('region', { name: /Finalize this invoice\?/ })).getByRole('button', { name: 'Finalize' }))
+    await user.click(within(screen.getByRole('group', { name: 'Confirm finalize' })).getByRole('button', { name: 'Finalize' }))
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
     expect(screen.getByRole('heading', { level: 1, name: 'Draft' })).toBeInTheDocument()
     // The draft can be finalized again once fixed.
     expect(screen.getByRole('button', { name: 'Finalize' })).toBeEnabled()
+  })
+
+  it('shows a 422 from finalize and keeps the draft', async () => {
+    const message = 'This invoice has no lines. Add at least one line before finalizing.'
+    stubFetch((url, init) => {
+      if (url === GET_URL) return jsonResponse({ invoice: draftInvoice() })
+      if (url === `${GET_URL}/finalize` && init?.method === 'POST') return jsonResponse({ error: message }, 422)
+      return undefined
+    })
+    const user = userEvent.setup()
+    renderAt()
+    await user.click(await screen.findByRole('button', { name: 'Finalize' }))
+    await user.click(within(screen.getByRole('group', { name: 'Confirm finalize' })).getByRole('button', { name: 'Finalize' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(screen.getByRole('heading', { level: 1, name: 'Draft' })).toBeInTheDocument()
+    expect(screen.getByTestId('status-pill')).toHaveTextContent('Draft')
+  })
+
+  it('focuses the confirm button when the confirmation opens, and returns focus to Finalize on Cancel', async () => {
+    stubFetch((url) => (url === GET_URL ? jsonResponse({ invoice: draftInvoice() }) : undefined))
+    const user = userEvent.setup()
+    renderAt()
+    await user.click(await screen.findByRole('button', { name: 'Finalize' }))
+    const group = screen.getByRole('group', { name: 'Confirm finalize' })
+    expect(within(group).getByRole('button', { name: 'Finalize' })).toHaveFocus()
+    await user.click(within(group).getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('group', { name: 'Confirm finalize' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Finalize' })).toHaveFocus()
   })
 })
 
@@ -267,6 +295,17 @@ describe('InvoiceDetailPage — final', () => {
     const client = await screen.findByRole('region', { name: 'Client' })
     expect(within(client).getByText('Acme BV')).toBeInTheDocument()
     expect(screen.queryByText('Acme Renamed BV')).not.toBeInTheDocument()
+  })
+
+  it('warns instead of showing the live client when a final invoice has no snapshot', async () => {
+    stubFetch((url) => (url === GET_URL ? jsonResponse({ invoice: finalInvoice({ client_snapshot: null }) }) : undefined))
+    renderAt()
+    const client = await screen.findByRole('region', { name: 'Client' })
+    expect(within(client).getByRole('alert')).toHaveTextContent(
+      "This invoice's saved client details are missing — the database may be damaged. Restore from a backup.",
+    )
+    expect(screen.queryByText('Acme Renamed BV')).not.toBeInTheDocument()
+    expect(screen.queryByText('Acme BV')).not.toBeInTheDocument()
   })
 
   it('links to the PDF inline and as a download, with no Edit or Finalize', async () => {
@@ -336,15 +375,15 @@ describe('InvoiceDetailPage — email', () => {
   it('explains how to set up email when it is not configured, without a form', async () => {
     const fetchMock = stubFetch((url) => {
       if (url === GET_URL) return jsonResponse({ invoice: finalInvoice() })
-      if (url === '/api/email/status') return jsonResponse({ configured: false, from: null })
+      if (url === '/api/email/status') {
+        return jsonResponse({ configured: false, from: null, message: 'Server says: email is not set up.' })
+      }
       return undefined
     })
     const user = userEvent.setup()
     renderAt()
     await user.click(await screen.findByRole('button', { name: 'Email to client' }))
-    expect(
-      await screen.findByText("Email isn't set up yet — add your Gmail app password to the .env file (see README)."),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Server says: email is not set up.')).toBeInTheDocument()
     expect(screen.queryByLabelText('Subject')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
     expect(callsTo(fetchMock, 'GET', `${GET_URL}/email-preview`)).toHaveLength(0)
@@ -383,6 +422,7 @@ describe('InvoiceDetailPage — email', () => {
     await user.dblClick(screen.getByRole('button', { name: 'Send' }))
     const busy = screen.getByRole('button', { name: 'Sending…' })
     expect(busy).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Email to client' })).toBeDisabled()
     await user.click(busy)
     const sends = callsTo(fetchMock, 'POST', `${GET_URL}/send`)
     expect(sends).toHaveLength(1)
@@ -416,6 +456,31 @@ describe('InvoiceDetailPage — email', () => {
     )
     expect(screen.getByLabelText('Subject')).toHaveValue(PREVIEW.subject)
     expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled()
+  })
+
+  it('closes the form and warns not to resend when the email went out but was not recorded', async () => {
+    const message = "The email was sent to billing@acme.nl, but the app could not record it. Don't send it again."
+    let gets = 0
+    stubFetch((url, init) => {
+      if (url === GET_URL) {
+        gets += 1
+        return jsonResponse({ invoice: finalInvoice() })
+      }
+      if (url === '/api/email/status') return jsonResponse({ configured: true, from: 'finance@neoinsentai.com' })
+      if (url === `${GET_URL}/email-preview`) return jsonResponse(PREVIEW)
+      if (url === `${GET_URL}/send` && init?.method === 'POST') {
+        return jsonResponse({ error: message, emailSent: true }, 500)
+      }
+      return undefined
+    })
+    const user = userEvent.setup()
+    renderAt()
+    await user.click(await screen.findByRole('button', { name: 'Email to client' }))
+    await user.click(await screen.findByRole('button', { name: 'Send' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(screen.queryByRole('button', { name: 'Send' })).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Subject')).not.toBeInTheDocument()
+    await waitFor(() => expect(gets).toBe(2))
   })
 
   it('shows why the preview could not be loaded (e.g. no client email)', async () => {

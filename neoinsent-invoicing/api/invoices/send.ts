@@ -131,9 +131,10 @@ export default async function handler(req: Request, res: Response) {
     updated = null
   }
   if (updated === null || typeof updated === 'string') {
-    // The email did go out: say so plainly, so it isn't sent twice by mistake.
+    // The email did go out: say so plainly (and flag it for the page), so it isn't sent twice by mistake.
     res.status(500).json({
       error: `The email was sent to ${to}, but the app could not record it. Don't send it again.`,
+      emailSent: true,
     })
     return
   }
