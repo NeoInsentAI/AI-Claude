@@ -3,6 +3,11 @@
  *
  * Deliberately has no OB-nummer: that number is derived from the owner's BSN, and the btw-id
  * (`vatNumber`) is the number Dutch invoices must show. Do not add it.
+ *
+ * Not snapshotted per invoice: when the PDF of an older final invoice is missing, it is
+ * re-generated with the details below as they are *now*. Changing them later (e.g. after a move)
+ * therefore changes regenerated PDFs of older invoices — keep the existing PDFs safe (Time Machine)
+ * so they never need re-generating.
  */
 export const COMPANY = {
   name: 'NeoInsent AI',

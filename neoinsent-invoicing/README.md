@@ -58,7 +58,10 @@ developers can override it with `NEOINSENT_DATA_DIR`). Do not put it in iCloud D
 synced folder; the app refuses to.
 
 - `neoinsent.db` — the database (final invoices are a legal record: keep them 7 years)
-- `invoices/<year>/` — the PDF of every finalized invoice
+- `invoices/<year>/` — the PDF of every finalized invoice. A missing PDF is re-created with the
+  company details as they are in the app *at that moment* (`api/_lib/company.ts`), so after
+  changing them an older invoice would be re-created with the new details: keep these PDFs safe
+  (Time Machine).
 - `backups/` — automatic copies of the database (see below)
 
 ## Backups
