@@ -82,9 +82,11 @@ describe('invoicesCsv', () => {
   })
 
   it('neutralises spreadsheet formulas in text fields with a leading apostrophe', () => {
-    for (const name of ['=SUM(A1)', '+31 Trading', '-minus', '@cmd']) {
+    for (const name of ['=SUM(A1)', '+31 Trading', '-minus', '@cmd', '\t=1+1']) {
       expect(invoicesCsv([invoice({ clientName: name })])).toContain(`;'${name};NL;`)
     }
+    // A leading carriage return is neutralised too, and then quoted (it contains CR).
+    expect(invoicesCsv([invoice({ clientName: '\r=1+1' })])).toContain(`;"'\r=1+1";NL;`)
     // Quoting still applies after the prefix.
     expect(invoicesCsv([invoice({ clientName: '=1;2' })])).toContain(`;"'=1;2";NL;`)
   })

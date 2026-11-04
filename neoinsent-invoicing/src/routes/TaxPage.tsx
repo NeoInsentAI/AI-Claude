@@ -24,6 +24,7 @@ function periodQuery({ year, quarter }: Period): string {
 }
 
 const hint = { color: 'var(--ink-soft)', fontSize: '0.85rem', margin: '12px 0 0' } as const
+const rowHint = { display: 'block', color: 'var(--ink-soft)', fontSize: '0.8rem', marginTop: 2 } as const
 const right = { textAlign: 'right' } as const
 
 function Amount({ value }: { value: number | null }) {
@@ -96,6 +97,9 @@ export function TaxPage() {
         <>
           <section className="card" aria-labelledby="btw-heading" style={{ marginBottom: 24 }}>
             <h2 id="btw-heading">BTW return (aangifte omzetbelasting)</h2>
+            <p style={{ ...hint, margin: '0 0 12px' }}>
+              {data.invoiceCount} {data.invoiceCount === 1 ? 'invoice' : 'invoices'} in this period
+            </p>
             <div style={{ overflowX: 'auto' }}>
               <table aria-labelledby="btw-heading">
                 <thead>
@@ -125,7 +129,13 @@ export function TaxPage() {
                   </tr>
                   <tr>
                     <td>1e</td>
-                    <td>Leveringen/diensten belast met 0% of niet bij u belast</td>
+                    <td>
+                      Leveringen/diensten belast met 0% of niet bij u belast
+                      <small style={rowHint}>
+                        Only for 0%-rated or VAT-shifted supplies. Exempt (vrijgestelde) turnover is not reported on
+                        the return.
+                      </small>
+                    </td>
                     <Amount value={data.btw.r1e.base} />
                     <Amount value={null} />
                   </tr>

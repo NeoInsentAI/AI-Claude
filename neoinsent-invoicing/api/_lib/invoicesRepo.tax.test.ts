@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { closeDb } from './db'
+import { closeDb, getDb } from './db'
 import { createClient, updateClient, type Client, type NewClient } from './clientsRepo'
 import {
   createDraftInvoice,
@@ -13,6 +13,7 @@ import {
   taxReport,
   type DraftInvoiceInput,
 } from './invoicesRepo'
+import { TaxReportDataError } from './taxReportError'
 
 let tmpDir: string
 const originalDataDir = process.env.NEOINSENT_DATA_DIR
@@ -112,7 +113,7 @@ describe('taxReport', () => {
       draftFor(acme, [
         { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
         { description: 'Books', quantity: 3, unit_price: 19.99, vat_rate: 9 },
-        { description: 'Exempt item', quantity: 1, unit_price: 50, vat_rate: 0 },
+        { description: 'Zero-rated item', quantity: 1, unit_price: 50, vat_rate: 0 },
       ]),
       new Date(2026, 6, 1, 0, 30),
     )
@@ -261,5 +262,47 @@ describe('taxReport', () => {
     expect((await taxReport(Q3_2026)).firstYear).toBeNull()
     await issue(draftFor(acme, [{ description: 'Old', quantity: 1, unit_price: 10, vat_rate: 21 }]), new Date(2024, 4, 1, 9, 0))
     expect((await taxReport(Q3_2026)).firstYear).toBe(2024)
+  })
+
+  it('reverse-charges a Greek client with an EL VAT number and lists it in the ICP as stored', async () => {
+    const greek = await createClient({
+      name: 'Paradeigma AE',
+      contact_person: null,
+      email: 'info@paradeigma.gr',
+      address_line: 'Ermou 1',
+      postal_code: '105 63',
+      city: 'Athens',
+      country: 'GR',
+      vat_number: 'EL123456789',
+      kvk_number: null,
+    })
+    await issue(reverseCharge(greek, [{ description: 'Advice', quantity: 1, unit_price: 250, vat_rate: 0 }]), new Date(2026, 6, 10, 9, 0))
+
+    const report = await taxReport(Q3_2026)
+    expect(report.btw.r3b).toEqual({ base: 250 })
+    expect(report.icp).toEqual([
+      { country: 'GR', vatNumber: 'EL123456789', clientName: 'Paradeigma AE', servicesTotal: 250 },
+    ])
+    expect(report.invoices[0]).toMatchObject({ clientCountry: 'GR', clientVatNumber: 'EL123456789', treatment: 'eu_reverse_charge' })
+  })
+
+  it('names the invoice and the rate when a line has an unexpected VAT rate', async () => {
+    await issue(draftFor(acme, [{ description: 'Consulting', quantity: 1, unit_price: 100, vat_rate: 21 }]), new Date(2026, 6, 1, 9, 0))
+    // Only reachable through a damaged database: the schema's CHECK allows 0, 9 and 21, and a
+    // trigger locks a final invoice's lines. Bypass both just for this update.
+    const db = getDb()
+    const trigger = db
+      .prepare("select sql from sqlite_master where type = 'trigger' and name = 'invoice_items_final_no_update'")
+      .get() as { sql: string }
+    db.exec('drop trigger invoice_items_final_no_update')
+    db.exec('PRAGMA ignore_check_constraints = ON')
+    db.prepare('update invoice_items set vat_rate = 6').run()
+    db.exec('PRAGMA ignore_check_constraints = OFF')
+    db.exec(trigger.sql)
+
+    await expect(taxReport(Q3_2026)).rejects.toThrow(
+      'Invoice NEO-2026-0001 has a line at an unexpected VAT rate of 6%, so the tax records can’t be computed',
+    )
+    await expect(taxReport(Q3_2026)).rejects.toBeInstanceOf(TaxReportDataError)
   })
 })

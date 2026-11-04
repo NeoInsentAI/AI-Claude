@@ -15,7 +15,7 @@ const TREATMENT_LABELS: Record<InvoiceVatTreatment, string> = {
 }
 
 /** A field starting with one of these would be run as a formula by a spreadsheet. */
-const FORMULA_START = /^[=+\-@]/
+const FORMULA_START = /^[=+\-@\t\r]/
 const NEEDS_QUOTES = /[;"\r\n]/
 
 /** A text field: formula-neutralised with a leading `'`, then quoted if needed. */

@@ -108,6 +108,31 @@ describe('determineVatTreatment', () => {
     })
   })
 
+  it('expects the EL prefix for a Greek (GR) client, as Greek VAT numbers use EL', () => {
+    expect(determineVatTreatment('GR', 'EL123456789')).toEqual({
+      treatment: 'eu_reverse_charge',
+      defaultRate: 0,
+    })
+    expect(determineVatTreatment(' gr ', 'el123456789')).toEqual({
+      treatment: 'eu_reverse_charge',
+      defaultRate: 0,
+    })
+  })
+
+  it('blocks a Greek client whose VAT number uses the ISO prefix GR instead of EL', () => {
+    expect(determineVatTreatment('GR', 'GR123456789')).toEqual({
+      treatment: 'blocked_missing_vat_number',
+      defaultRate: null,
+    })
+  })
+
+  it('does not accept an EL-prefixed VAT number for a non-Greek client', () => {
+    expect(determineVatTreatment('DE', 'EL123456789')).toEqual({
+      treatment: 'blocked_missing_vat_number',
+      defaultRate: null,
+    })
+  })
+
   it('returns not_supported instead of throwing for non-string clientCountry', () => {
     expect(determineVatTreatment(null as any, null)).toEqual({
       treatment: 'not_supported',

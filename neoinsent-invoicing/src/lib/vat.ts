@@ -13,7 +13,8 @@ export type VatTreatment =
   // (1) no VAT number was given, (2) the VAT number doesn't match the
   // plausible-format check, or (3) the VAT number's own country prefix
   // doesn't match the client's declared country (e.g. a DE client with
-  // an IE-prefixed VAT number — a likely data-entry mistake).
+  // an IE-prefixed VAT number — a likely data-entry mistake). Greek VAT
+  // numbers use EL, not the ISO code GR (see vatPrefixForCountry).
   | 'blocked_missing_vat_number'
   | 'not_supported'
 
@@ -34,6 +35,13 @@ export type InvoiceVatTreatment = Extract<VatTreatment, 'nl_standard' | 'eu_reve
 // 'not_supported' values.
 export function isInvoiceVatTreatment(t: VatTreatment): t is InvoiceVatTreatment {
   return t === 'nl_standard' || t === 'eu_reverse_charge'
+}
+
+// The prefix a country's VAT numbers start with. That's the ISO country code everywhere except
+// Greece, whose VAT numbers use EL (the client country stays the ISO code GR).
+export function vatPrefixForCountry(country: string): string {
+  const code = country.trim().toUpperCase()
+  return code === 'GR' ? 'EL' : code
 }
 
 // Format check only (no VIES lookup, per spec): 2-letter country prefix
@@ -68,7 +76,7 @@ export function determineVatTreatment(
     if (
       clientVatNumber &&
       isPlausibleVatNumber(clientVatNumber) &&
-      clientVatNumber.trim().toUpperCase().startsWith(country)
+      clientVatNumber.trim().toUpperCase().startsWith(vatPrefixForCountry(country))
     ) {
       return { treatment: 'eu_reverse_charge', defaultRate: 0 }
     }

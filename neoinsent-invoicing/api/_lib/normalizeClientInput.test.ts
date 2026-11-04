@@ -99,6 +99,19 @@ describe('normalizeClientInput', () => {
     })
   })
 
+  it('accepts a Greek client with an EL-prefixed VAT number', () => {
+    const result = normalizeClientInput({ ...completeInput, country: 'GR', vat_number: 'el 123456789' })
+    expect(result.ok && result.value).toMatchObject({ country: 'GR', vat_number: 'EL123456789' })
+  })
+
+  it('rejects a Greek client with a GR-prefixed VAT number, pointing at the EL prefix', () => {
+    const result = normalizeClientInput({ ...completeInput, country: 'gr', vat_number: 'GR123456789' })
+    expect(result).toEqual({
+      ok: false,
+      error: 'Greek VAT numbers start with EL, not GR — e.g. EL123456789',
+    })
+  })
+
   it('stores empty-string vat/kvk/contact as null', () => {
     const result = normalizeClientInput({
       ...completeInput,

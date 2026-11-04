@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import { taxReport, type TaxReport } from './_lib/invoicesRepo'
 import { parsePeriodQuery, type Quarter } from './_lib/parsePeriodQuery'
 import { icpCsv, invoicesCsv } from './_lib/taxCsv'
+import { TaxReportDataError } from './_lib/taxReportError'
 import { quarterDateRange } from '../src/lib/dateRanges'
 
 const DATABASE_ERROR = 'Database error — please try again'
@@ -39,7 +40,8 @@ async function loadReport(req: Request, res: Response): Promise<{ period: TaxPer
     return { period: { year, quarter, ...range }, report: await taxReport(range) }
   } catch (error) {
     console.error('Failed to load the tax records', error)
-    res.status(500).json({ error: DATABASE_ERROR })
+    // Bad stored data has a specific, actionable message; anything else is a database failure.
+    res.status(500).json({ error: error instanceof TaxReportDataError ? error.message : DATABASE_ERROR })
     return null
   }
 }

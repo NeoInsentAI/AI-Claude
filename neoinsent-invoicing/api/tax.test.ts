@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import handler, { icpCsvHandler, invoicesCsvHandler } from './tax'
 import * as invoicesRepo from './_lib/invoicesRepo'
+import { TaxReportDataError } from './_lib/taxReportError'
 
 vi.mock('./_lib/invoicesRepo')
 
@@ -97,6 +98,15 @@ describe('GET /api/tax', () => {
     const res = await call(handler, { year: '2026' })
     expect(res.statusCode).toBe(500)
     expect(res.body).toEqual({ error: 'Database error — please try again' })
+  })
+
+  it('answers 500 with the specific message when the stored data can’t be reported', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const message = 'Invoice NEO-2026-0001 has a line at an unexpected VAT rate of 6%, so the tax records can’t be computed'
+    vi.mocked(invoicesRepo.taxReport).mockRejectedValue(new TaxReportDataError(message))
+    const res = await call(handler, { year: '2026' })
+    expect(res.statusCode).toBe(500)
+    expect(res.body).toEqual({ error: message })
   })
 })
 

@@ -24,6 +24,8 @@ function optionalTrimmed(value: unknown): string | null {
 // casing/whitespace is fixed here rather than at display time.
 // Note: does NOT check that the VAT prefix matches the country —
 // determineVatTreatment handles that and surfaces it on the invoice form.
+// The one exception is a Greek number with the ISO prefix GR: that's a
+// common mistake (Greek VAT numbers use EL), so it gets a pointed message.
 export function normalizeClientInput(body: unknown): NormalizeClientInputResult {
   const input = (body !== null && typeof body === 'object' ? body : {}) as Record<string, unknown>
 
@@ -58,6 +60,9 @@ export function normalizeClientInput(body: unknown): NormalizeClientInputResult 
           error:
             'VAT number looks invalid — expected a 2-letter country prefix followed by digits/letters, e.g. DE123456789',
         }
+      }
+      if (country === 'GR' && compact.startsWith('GR')) {
+        return { ok: false, error: 'Greek VAT numbers start with EL, not GR — e.g. EL123456789' }
       }
       vatNumber = compact
     }

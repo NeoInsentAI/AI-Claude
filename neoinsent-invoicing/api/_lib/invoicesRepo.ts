@@ -5,6 +5,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { fromCents, getDataDir, getDb, nextInvoiceNumber, toCents, toHundredths, withTransaction } from './db'
 import { CLIENT_COLUMNS, toClient, type Client, type NewClient } from './clientsRepo'
 import { vatMismatchMessage } from './checkClientForDraft'
+import { TaxReportDataError } from './taxReportError'
 import { buildInvoicePdfModel, pdfInputForStoredInvoice, type InvoicePdfModel } from './invoicePdfModel'
 import { computeInvoiceTotals, computeLine, computeStoredLineCents } from '../../src/lib/invoiceMath'
 import { determineVatTreatment, type InvoiceVatTreatment } from '../../src/lib/vat'
@@ -567,14 +568,14 @@ export interface TaxReport {
 function btwFigures(db: DatabaseSync, range: PeriodRange): BtwFigures {
   const lines = db
     .prepare(
-      `select i.vat_treatment, it.quantity_hundredths, it.unit_price_cents, it.vat_rate
+      `select i.invoice_number, i.vat_treatment, it.quantity_hundredths, it.unit_price_cents, it.vat_rate
        from invoice_items it join invoices i on i.id = it.invoice_id
        where i.status = 'final' and i.issue_date between ? and ?`,
     )
     .all(range.fromDate, range.toDate) as unknown as (Pick<
     InvoiceItemRow,
     'quantity_hundredths' | 'unit_price_cents' | 'vat_rate'
-  > & { vat_treatment: InvoiceVatTreatment })[]
+  > & { invoice_number: string; vat_treatment: InvoiceVatTreatment })[]
 
   const cents = { r1a: { base: 0, vat: 0 }, r1b: { base: 0, vat: 0 }, r1e: { base: 0 }, r3b: { base: 0 } }
   for (const line of lines) {
@@ -596,7 +597,10 @@ function btwFigures(db: DatabaseSync, range: PeriodRange): BtwFigures {
       cents.r1e.base += subtotalCents
     } else {
       // Never silently leave turnover out of a tax return.
-      throw new Error(`Unexpected VAT rate ${line.vat_rate}% on a domestic invoice line`)
+      throw new TaxReportDataError(
+        `Invoice ${line.invoice_number} has a line at an unexpected VAT rate of ${line.vat_rate}%, ` +
+          'so the tax records can’t be computed',
+      )
     }
   }
   return {

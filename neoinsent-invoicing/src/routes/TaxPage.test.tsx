@@ -111,6 +111,33 @@ describe('TaxPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('explains under rubriek 1e that exempt turnover does not belong there', async () => {
+    today(new Date(2026, 10, 4, 10, 0))
+    stubFetch(jsonResponse(taxData()))
+    renderPage()
+    const table = await screen.findByRole('table', { name: /BTW return/ })
+    const row1e = within(table)
+      .getAllByRole('row')
+      .find((r) => within(r).queryByText('1e') !== null) as HTMLElement
+    expect(row1e).toHaveTextContent(
+      'Only for 0%-rated or VAT-shifted supplies. Exempt (vrijgestelde) turnover is not reported on the return.',
+    )
+  })
+
+  it('shows how many final invoices the period has', async () => {
+    today(new Date(2026, 10, 4, 10, 0))
+    stubFetch(jsonResponse(taxData({ invoiceCount: 12 })))
+    renderPage()
+    expect(await screen.findByText('12 invoices in this period')).toBeInTheDocument()
+  })
+
+  it('uses the singular for one invoice', async () => {
+    today(new Date(2026, 10, 4, 10, 0))
+    stubFetch(jsonResponse(taxData({ invoiceCount: 1 })))
+    renderPage()
+    expect(await screen.findByText('1 invoice in this period')).toBeInTheDocument()
+  })
+
   it('lists the ICP rows with a note to report them as services', async () => {
     today(new Date(2026, 10, 4, 10, 0))
     stubFetch(jsonResponse(taxData()))
