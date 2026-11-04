@@ -88,6 +88,8 @@ export interface InvoiceSummary {
   vat_amount: number
   total: number
   paid: boolean
+  /** Where the PDF was written; null on a final invoice means it still has to be (re)created. */
+  pdf_path: string | null
 }
 
 export interface ListInvoicesFilter {
@@ -141,6 +143,7 @@ type SummaryRow = Pick<
   | 'vat_amount_cents'
   | 'total_cents'
   | 'paid'
+  | 'pdf_path'
 > & { client_name: string }
 
 function fromInvoiceRow(row: InvoiceRow): Invoice {
@@ -194,6 +197,7 @@ function fromSummaryRow(row: SummaryRow): InvoiceSummary {
     vat_amount: fromCents(row.vat_amount_cents),
     total: fromCents(row.total_cents),
     paid: row.paid === 1,
+    pdf_path: row.pdf_path,
   }
 }
 
@@ -295,7 +299,7 @@ export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<Inv
     .prepare(
       `select i.id, i.invoice_number, i.client_id, c.name as client_name, i.status,
               i.vat_treatment, i.issue_date, i.subtotal_cents, i.vat_amount_cents, i.total_cents,
-              i.paid
+              i.paid, i.pdf_path
        from invoices i join clients c on c.id = i.client_id
        ${where}
        -- created_at, then rowid (insertion order), keep same-day invoices in a stable order.
@@ -536,4 +540,24 @@ export async function setInvoicePdfPath(id: string, relPath: string): Promise<bo
     .prepare('update invoices set pdf_path = ?, updated_at = ? where id = ?')
     .run(relPath, new Date().toISOString(), id)
   return result.changes > 0
+}
+
+/**
+ * Marks a final invoice paid or unpaid (drafts can't be paid). Returns 'not_found' for an unknown
+ * id and 'not_final' for a draft (left untouched); otherwise the refreshed invoice.
+ */
+export async function setInvoicePaid(
+  id: string,
+  paid: boolean,
+): Promise<'not_found' | 'not_final' | InvoiceWithDetails> {
+  const db = getDb()
+  return withTransaction(db, () => {
+    const result = db
+      .prepare("update invoices set paid = ?, updated_at = ? where id = ? and status = 'final'")
+      .run(paid ? 1 : 0, new Date().toISOString(), id)
+    if (result.changes === 0) {
+      return selectInvoiceRow(db, id) ? ('not_final' as const) : ('not_found' as const)
+    }
+    return loadInvoice(db, id) as InvoiceWithDetails
+  })
 }

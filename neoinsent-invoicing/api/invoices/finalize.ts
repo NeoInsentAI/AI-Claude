@@ -89,7 +89,15 @@ export default async function handler(req: Request, res: Response) {
     await setInvoicePdfPath(id, relPath)
     pdfPath = relPath
   } catch (error) {
-    console.error(`Invoice ${invoice.invoice_number} was finalized but its PDF could not be written or recorded`, error)
+    if ((error as NodeJS.ErrnoException)?.code === 'EEXIST') {
+      // The file at this number's path is not this invoice's PDF; it is left untouched.
+      console.error(
+        `A PDF for ${invoice.invoice_number} already existed on disk before this invoice was issued — check the invoices folder`,
+        error,
+      )
+    } else {
+      console.error(`Invoice ${invoice.invoice_number} was finalized but its PDF could not be written or recorded`, error)
+    }
   }
 
   let reloaded = null

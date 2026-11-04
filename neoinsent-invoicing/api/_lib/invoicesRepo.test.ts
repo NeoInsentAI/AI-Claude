@@ -201,6 +201,7 @@ describe('listInvoices', () => {
       vat_amount: 47.4,
       total: 307.37,
       paid: false,
+      pdf_path: null,
     })
   })
 

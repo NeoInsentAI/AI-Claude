@@ -193,6 +193,30 @@ describe('POST /api/invoices/:id/finalize', () => {
     expect(later).toEqual({ status: 'ok', path: path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf') })
   })
 
+  it('logs a distinct error and keeps the existing file when a PDF already sits at the new path', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server)
+    const abs = path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    const actualRender = vi.mocked(invoicePdf.renderInvoicePdf).getMockImplementation()!
+    // A file appears at the path after the number was taken, before the PDF is moved into place.
+    vi.mocked(invoicePdf.renderInvoicePdf).mockImplementationOnce(async (model) => {
+      fs.mkdirSync(path.dirname(abs), { recursive: true })
+      fs.writeFileSync(abs, 'someone else')
+      return actualRender(model)
+    })
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(200)
+    expect(res.body.pdfError).toMatch(/could not be created yet/)
+    expect(fs.readFileSync(abs, 'utf8')).toBe('someone else')
+    expect(logged).toHaveBeenCalledWith(
+      'A PDF for NEO-2026-0001 already existed on disk before this invoice was issued — check the invoices folder',
+      expect.objectContaining({ code: 'EEXIST' }),
+    )
+  })
+
   it('answers 200 with pdfError when recording the PDF fails, and the written PDF is accepted later', async () => {
     const server = app()
     const { invoiceId } = await createDraft(server)

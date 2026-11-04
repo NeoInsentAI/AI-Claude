@@ -10,6 +10,7 @@ import {
   createDraftInvoice,
   finalizeDraftInvoice,
   getInvoice,
+  setInvoicePaid,
   setInvoicePdfPath,
   type DraftInvoiceInput,
 } from './invoicesRepo'
@@ -150,6 +151,14 @@ describe('finalizeDraftInvoice', () => {
       due_date: '2026-12-04',
       invoice_number: 'NEO-2026-0001',
     })
+  })
+
+  it('gives a draft whose due date is before its issue date a 0-day term', async () => {
+    const draft = await createDraftInvoice(draftFor(acme, { issue_date: '2026-11-02', due_date: '2026-10-20' }))
+
+    const result = await finalizeDraftInvoice(draft.id, NOW)
+
+    expect(result.status === 'ok' && result.invoice).toMatchObject({ issue_date: '2026-11-04', due_date: '2026-11-04' })
   })
 
   it("refuses a number that already has a PDF in the invoices folder ('number_conflict')", async () => {
@@ -315,5 +324,44 @@ describe('setInvoicePdfPath', () => {
 
   it('returns false for an unknown id', async () => {
     expect(await setInvoicePdfPath(UNKNOWN_ID, 'x.pdf')).toBe(false)
+  })
+})
+
+describe('setInvoicePaid', () => {
+  it('marks a final invoice paid and unpaid, setting updated_at', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    await finalizeDraftInvoice(draft.id, NOW)
+
+    const paid = await setInvoicePaid(draft.id, true)
+    expect(paid).toMatchObject({ id: draft.id, status: 'final', paid: true })
+    expect(storedRow(draft.id)).toMatchObject({ paid: 1 })
+    expect(storedRow(draft.id).updated_at).not.toBe(NOW.toISOString())
+
+    const unpaid = await setInvoicePaid(draft.id, false)
+    expect(unpaid).toMatchObject({ paid: false })
+    expect(storedRow(draft.id)).toMatchObject({ paid: 0 })
+    expect((await getInvoice(draft.id))?.paid).toBe(false)
+  })
+
+  it("returns 'not_final' for a draft, leaving it untouched", async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+
+    expect(await setInvoicePaid(draft.id, true)).toBe('not_final')
+    expect(storedRow(draft.id)).toMatchObject({ paid: 0, updated_at: null })
+  })
+
+  it("returns 'not_found' for an unknown id", async () => {
+    expect(await setInvoicePaid(UNKNOWN_ID, true)).toBe('not_found')
+  })
+
+  it('leaves the final-invoice lock in place for every other column', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    await finalizeDraftInvoice(draft.id, NOW)
+    await setInvoicePaid(draft.id, true)
+
+    expect(() =>
+      getDb().prepare('update invoices set paid = 0, total_cents = 1 where id = ?').run(draft.id),
+    ).toThrow(/final invoices cannot be changed/)
+    expect(storedRow(draft.id)).toMatchObject({ paid: 1 })
   })
 })

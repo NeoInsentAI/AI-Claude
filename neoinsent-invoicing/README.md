@@ -32,7 +32,8 @@ Everything is in one folder, `~/NeoInsent Invoicing` by default (override with
 Quit the app first. Restore `neoinsent.db` together with the `invoices/` folder from the same
 moment — never the database alone: an older database would not know the invoices issued since,
 and would hand out their numbers again. The app refuses to finalize an invoice whose number
-already has a PDF in `invoices/`, and says so.
+already has a PDF in `invoices/`, and says so — that check relies on the PDFs being present in
+the `invoices/` folder, so never delete or move them out of it.
 
 ## Scripts
 
