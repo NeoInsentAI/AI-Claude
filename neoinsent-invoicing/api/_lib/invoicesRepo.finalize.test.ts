@@ -326,6 +326,13 @@ describe('setInvoicePdfPath', () => {
   it('returns false for an unknown id', async () => {
     expect(await setInvoicePdfPath(UNKNOWN_ID, 'x.pdf')).toBe(false)
   })
+
+  it('returns false for a draft and leaves its pdf_path unset', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+
+    expect(await setInvoicePdfPath(draft.id, 'invoices/2026/NEO-2026-0001.pdf')).toBe(false)
+    expect((await getInvoice(draft.id))?.pdf_path).toBeNull()
+  })
 })
 
 describe('setInvoicePaid', () => {

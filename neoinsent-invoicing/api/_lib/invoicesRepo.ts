@@ -932,10 +932,13 @@ export async function finalizeDraftInvoice(id: string, now: Date = new Date()): 
   }
 }
 
-/** Records where a final invoice's PDF was written (relative to the data folder). */
+/**
+ * Records where a final invoice's PDF was written (relative to the data folder). Returns false
+ * for an unknown id or a draft (drafts have no issued PDF).
+ */
 export async function setInvoicePdfPath(id: string, relPath: string): Promise<boolean> {
   const result = getDb()
-    .prepare('update invoices set pdf_path = ?, updated_at = ? where id = ?')
+    .prepare("update invoices set pdf_path = ?, updated_at = ? where id = ? and status = 'final'")
     .run(relPath, new Date().toISOString(), id)
   return result.changes > 0
 }
