@@ -250,6 +250,29 @@ describe('taxReport', () => {
     ])
   })
 
+  it('merges ICP rows whose VAT numbers differ only in spaces, dots, dashes or case', async () => {
+    await issue(
+      reverseCharge(beispiel, [{ description: 'One', quantity: 1, unit_price: 100, vat_rate: 0 }]),
+      new Date(2026, 6, 15, 9, 0),
+    )
+    const second = await issue(
+      reverseCharge(beispiel, [{ description: 'Two', quantity: 1, unit_price: 50, vat_rate: 0 }]),
+      new Date(2026, 7, 1, 9, 0),
+    )
+    // Simulate a snapshot saved with the number written differently (the trigger is bypassed only
+    // for this simulation).
+    const db = getDb()
+    db.exec('drop trigger invoices_final_no_update')
+    db.prepare(
+      `update invoices set client_snapshot = json_set(client_snapshot, '$.vat_number', 'de 123.456-789') where id = ?`,
+    ).run(second)
+
+    const report = await taxReport(Q3_2026)
+    expect(report.icp).toEqual([
+      { country: 'DE', vatNumber: 'DE123456789', clientName: 'Beispiel GmbH', servicesTotal: 150 },
+    ])
+  })
+
   it('returns zeros and empty lists for a period without final invoices', async () => {
     await createDraftInvoice(draftFor(acme, [{ description: 'Draft', quantity: 1, unit_price: 10, vat_rate: 21 }]))
     const report = await taxReport(Q3_2026)

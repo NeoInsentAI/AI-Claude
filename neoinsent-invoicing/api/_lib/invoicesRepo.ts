@@ -623,18 +623,24 @@ function btwFigures(db: DatabaseSync, range: PeriodRange): BtwFigures {
 function icpRows(db: DatabaseSync, range: PeriodRange): IcpRow[] {
   const rows = db
     .prepare(
-      `with rc as (
+      // One row per customer: VAT numbers are compared without spaces, dots and dashes, in upper
+      // case, so 'DE 123.456-789' and 'DE123456789' are the same customer.
+      `with snap as (
          select json_extract(client_snapshot, '$.country') as country,
-                json_extract(client_snapshot, '$.vat_number') as vat_number,
+                upper(replace(replace(replace(json_extract(client_snapshot, '$.vat_number'),
+                  ' ', ''), '.', ''), '-', '')) as vat_number,
                 json_extract(client_snapshot, '$.name') as name,
-                subtotal_cents,
-                row_number() over (
-                  partition by json_extract(client_snapshot, '$.country'),
-                               json_extract(client_snapshot, '$.vat_number')
-                  order by issue_date desc, invoice_number desc
-                ) as recency
+                subtotal_cents, issue_date, invoice_number
          from invoices
          where status = 'final' and vat_treatment = 'eu_reverse_charge' and issue_date between ? and ?
+       ),
+       rc as (
+         select country, vat_number, name, subtotal_cents,
+                row_number() over (
+                  partition by country, vat_number
+                  order by issue_date desc, invoice_number desc
+                ) as recency
+         from snap
        )
        select country, vat_number,
               max(case when recency = 1 then name end) as client_name,
