@@ -6,6 +6,7 @@ import express from 'express'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDb, getDb } from '../api/_lib/db'
+import { finalizeDraftInvoice } from '../api/_lib/invoicesRepo'
 import { createApp, wrap } from './app'
 
 const PORT = 5174
@@ -474,5 +475,69 @@ describe('GET /api/dashboard', () => {
     expect((await request(server).get('/api/dashboard?quarter=2').set('Host', HOST)).status).toBe(400)
     const post = await request(server).post('/api/dashboard').set('Host', HOST).send({})
     expect(post.status).toBe(405)
+  })
+})
+
+describe('GET /api/tax and the CSV downloads', () => {
+  async function issueAcmeInvoice(server: express.Express) {
+    const client = await createAcme(server)
+    const id = await createDraft(server, client.id)
+    const result = await finalizeDraftInvoice(id, new Date(2026, 9, 5, 10, 0))
+    expect(result.status).toBe('ok')
+  }
+
+  it('returns the BTW figures for the quarter through the real database', async () => {
+    const server = app()
+    await issueAcmeInvoice(server)
+    const res = await request(server).get('/api/tax?year=2026&quarter=4').set('Host', HOST)
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({
+      period: { year: 2026, quarter: 4, fromDate: '2026-10-01', toDate: '2026-12-31' },
+      btw: { r1a: { base: 200, vat: 42 }, r1b: { base: 0, vat: 0 }, r1e: { base: 0 }, r3b: { base: 0 }, vatDue: 42 },
+      icp: [],
+      invoiceCount: 1,
+      firstYear: 2026,
+    })
+  })
+
+  it('serves the invoices CSV with a BOM as an attachment named after the quarter', async () => {
+    const server = app()
+    await issueAcmeInvoice(server)
+    const res = await request(server)
+      .get('/api/tax/invoices.csv?year=2026&quarter=4')
+      .set('Host', HOST)
+      .buffer(true)
+      .parse((response, done) => {
+        const chunks: Buffer[] = []
+        response.on('data', (chunk: Buffer) => chunks.push(chunk))
+        response.on('end', () => done(null, Buffer.concat(chunks)))
+      })
+    expect(res.status).toBe(200)
+    expect(res.headers['content-type']).toBe('text/csv; charset=utf-8')
+    expect(res.headers['content-disposition']).toBe('attachment; filename="neoinsent-facturen-2026-Q4.csv"')
+    const body = res.body as Buffer
+    expect([...body.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+    expect(body.toString('utf8')).toBe(
+      '\uFEFFFactuurnummer;Factuurdatum;Klant;Land;Btw-nummer klant;Btw-behandeling;Bedrag excl. btw;Btw;Totaal;Betaald\r\n' +
+        'NEO-2026-0001;05-10-2026;Acme BV;NL;NL123456789B01;Binnenland;200,00;42,00;242,00;nee\r\n',
+    )
+  })
+
+  it('names the ICP CSV after the year when no quarter is given', async () => {
+    const server = app()
+    const res = await request(server).get('/api/tax/icp.csv?year=2026').set('Host', HOST)
+    expect(res.status).toBe(200)
+    expect(res.headers['content-disposition']).toBe('attachment; filename="neoinsent-icp-2026.csv"')
+    expect(res.text).toBe('\uFEFFLand;Btw-nummer;Klant;Diensten (excl. btw)\r\n')
+  })
+
+  it('requires a year and allows only GET', async () => {
+    const server = app()
+    expect((await request(server).get('/api/tax').set('Host', HOST)).status).toBe(400)
+    expect((await request(server).get('/api/tax/invoices.csv?quarter=1').set('Host', HOST)).status).toBe(400)
+    for (const route of ['/api/tax', '/api/tax/invoices.csv', '/api/tax/icp.csv']) {
+      const post = await request(server).post(`${route}?year=2026`).set('Host', HOST).send({})
+      expect(post.status).toBe(405)
+    }
   })
 })

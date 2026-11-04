@@ -509,6 +509,200 @@ export async function dashboardData({ fromDate, toDate, today }: DashboardQuery)
   }))
 }
 
+/** Turnover excl. VAT and the VAT on it, in euros. */
+export interface BtwAmounts {
+  base: number
+  vat: number
+}
+
+/** The figures for the Dutch VAT return (aangifte omzetbelasting), in euros, exact to the cent. */
+export interface BtwFigures {
+  /** 1a: domestic supplies/services at the high rate (21%). */
+  r1a: BtwAmounts
+  /** 1b: domestic supplies/services at the low rate (9%). */
+  r1b: BtwAmounts
+  /** 1e: domestic supplies/services at 0% (or not taxed with you). */
+  r1e: { base: number }
+  /** 3b: services to businesses in other EU countries (reverse charge, intra-community). */
+  r3b: { base: number }
+  /** r1a.vat + r1b.vat — equals the sum of the period's invoice VAT. */
+  vatDue: number
+}
+
+/** One line of the ICP declaration: services to one EU customer (country + VAT number). */
+export interface IcpRow {
+  country: string
+  vatNumber: string
+  /** The name on the most recent invoice to this VAT number in the period (from the snapshot). */
+  clientName: string
+  /** Sum of the invoices' amounts excl. VAT. */
+  servicesTotal: number
+}
+
+/** A final invoice as listed in the tax records CSV; client details from the snapshot. */
+export interface TaxInvoiceRow {
+  invoiceNumber: string
+  issueDate: string
+  clientName: string
+  clientCountry: string
+  clientVatNumber: string | null
+  treatment: InvoiceVatTreatment
+  subtotal: number
+  vatAmount: number
+  total: number
+  paid: boolean
+}
+
+export interface TaxReport {
+  btw: BtwFigures
+  /** Ordered by country, then VAT number. */
+  icp: IcpRow[]
+  /** The period's final invoices, oldest invoice number first. */
+  invoices: TaxInvoiceRow[]
+  /** Earliest year with a final invoice; null when there are none yet (for the year picker). */
+  firstYear: number | null
+}
+
+/** BTW rubrieken from the period's final invoice lines. Synchronous, for use inside a transaction. */
+function btwFigures(db: DatabaseSync, range: PeriodRange): BtwFigures {
+  const lines = db
+    .prepare(
+      `select i.vat_treatment, it.quantity_hundredths, it.unit_price_cents, it.vat_rate
+       from invoice_items it join invoices i on i.id = it.invoice_id
+       where i.status = 'final' and i.issue_date between ? and ?`,
+    )
+    .all(range.fromDate, range.toDate) as unknown as (Pick<
+    InvoiceItemRow,
+    'quantity_hundredths' | 'unit_price_cents' | 'vat_rate'
+  > & { vat_treatment: InvoiceVatTreatment })[]
+
+  const cents = { r1a: { base: 0, vat: 0 }, r1b: { base: 0, vat: 0 }, r1e: { base: 0 }, r3b: { base: 0 } }
+  for (const line of lines) {
+    const { subtotalCents, vatCents } = computeStoredLineCents({
+      quantityHundredths: line.quantity_hundredths,
+      unitPriceCents: line.unit_price_cents,
+      vatRate: line.vat_rate,
+    })
+    // Reverse charge is recognised by its treatment, never by its 0% rate.
+    if (line.vat_treatment === 'eu_reverse_charge') {
+      cents.r3b.base += subtotalCents
+    } else if (line.vat_rate === 21) {
+      cents.r1a.base += subtotalCents
+      cents.r1a.vat += vatCents
+    } else if (line.vat_rate === 9) {
+      cents.r1b.base += subtotalCents
+      cents.r1b.vat += vatCents
+    } else if (line.vat_rate === 0) {
+      cents.r1e.base += subtotalCents
+    } else {
+      // Never silently leave turnover out of a tax return.
+      throw new Error(`Unexpected VAT rate ${line.vat_rate}% on a domestic invoice line`)
+    }
+  }
+  return {
+    r1a: { base: fromCents(cents.r1a.base), vat: fromCents(cents.r1a.vat) },
+    r1b: { base: fromCents(cents.r1b.base), vat: fromCents(cents.r1b.vat) },
+    r1e: { base: fromCents(cents.r1e.base) },
+    r3b: { base: fromCents(cents.r3b.base) },
+    vatDue: fromCents(cents.r1a.vat + cents.r1b.vat),
+  }
+}
+
+/** ICP rows from the snapshots of the period's reverse-charge invoices. Synchronous. */
+function icpRows(db: DatabaseSync, range: PeriodRange): IcpRow[] {
+  const rows = db
+    .prepare(
+      `with rc as (
+         select json_extract(client_snapshot, '$.country') as country,
+                json_extract(client_snapshot, '$.vat_number') as vat_number,
+                json_extract(client_snapshot, '$.name') as name,
+                subtotal_cents,
+                row_number() over (
+                  partition by json_extract(client_snapshot, '$.country'),
+                               json_extract(client_snapshot, '$.vat_number')
+                  order by issue_date desc, invoice_number desc
+                ) as recency
+         from invoices
+         where status = 'final' and vat_treatment = 'eu_reverse_charge' and issue_date between ? and ?
+       )
+       select country, vat_number,
+              max(case when recency = 1 then name end) as client_name,
+              sum(subtotal_cents) as services_cents
+       from rc
+       group by country, vat_number
+       order by country, vat_number`,
+    )
+    .all(range.fromDate, range.toDate) as unknown as {
+    country: string
+    vat_number: string
+    client_name: string
+    services_cents: number
+  }[]
+  return rows.map((row) => ({
+    country: row.country,
+    vatNumber: row.vat_number,
+    clientName: row.client_name,
+    servicesTotal: fromCents(row.services_cents),
+  }))
+}
+
+/** The period's final invoices for the CSV, with client details from the snapshot. Synchronous. */
+function taxInvoiceRows(db: DatabaseSync, range: PeriodRange): TaxInvoiceRow[] {
+  const rows = db
+    .prepare(
+      `select invoice_number, issue_date,
+              json_extract(client_snapshot, '$.name') as client_name,
+              json_extract(client_snapshot, '$.country') as client_country,
+              json_extract(client_snapshot, '$.vat_number') as client_vat_number,
+              vat_treatment, subtotal_cents, vat_amount_cents, total_cents, paid
+       from invoices
+       where status = 'final' and issue_date between ? and ?
+       order by invoice_number asc`,
+    )
+    .all(range.fromDate, range.toDate) as unknown as {
+    invoice_number: string
+    issue_date: string
+    client_name: string
+    client_country: string
+    client_vat_number: string | null
+    vat_treatment: InvoiceVatTreatment
+    subtotal_cents: number
+    vat_amount_cents: number
+    total_cents: number
+    paid: number
+  }[]
+  return rows.map((row) => ({
+    invoiceNumber: row.invoice_number,
+    issueDate: row.issue_date,
+    clientName: row.client_name,
+    clientCountry: row.client_country,
+    clientVatNumber: row.client_vat_number,
+    treatment: row.vat_treatment,
+    subtotal: fromCents(row.subtotal_cents),
+    vatAmount: fromCents(row.vat_amount_cents),
+    total: fromCents(row.total_cents),
+    paid: row.paid === 1,
+  }))
+}
+
+/**
+ * The tax records for a period — BTW return figures, ICP listing and the invoice list — from the
+ * final invoices issued in `range` (inclusive), read in ONE transaction so they agree. Client
+ * details come from each invoice's snapshot (what was actually invoiced), never the live client.
+ * Sums run over integer cents; per-line amounts use invoiceMath's rounding, so the VAT due equals
+ * the sum of the invoices' VAT.
+ */
+export async function taxReport({ fromDate, toDate }: PeriodRange): Promise<TaxReport> {
+  const db = getDb()
+  const range = { fromDate, toDate }
+  return withTransaction(db, () => ({
+    btw: btwFigures(db, range),
+    icp: icpRows(db, range),
+    invoices: taxInvoiceRows(db, range),
+    firstYear: firstFinalYear(db),
+  }))
+}
+
 export async function getInvoice(id: string): Promise<InvoiceWithDetails | null> {
   return loadInvoice(getDb(), id)
 }

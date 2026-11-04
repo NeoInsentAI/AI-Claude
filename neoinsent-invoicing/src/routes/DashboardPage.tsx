@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { apiFetch } from '../lib/apiClient'
 import { formatCurrency, formatDate } from '../lib/format'
 import { todayLocalIso } from '../lib/invoiceForm'
-
-type Quarter = 1 | 2 | 3 | 4
+import { yearOptions, type Period } from '../lib/periods'
+import { PeriodPicker } from '../components/PeriodPicker'
 
 /** The fields of an invoice in `GET /api/dashboard` this page uses. */
 interface DashboardInvoice {
@@ -39,22 +39,8 @@ interface DashboardData {
   firstYear: number | null
 }
 
-interface Period {
-  year: number
-  quarter: Quarter | null
-}
-
 const PERIOD_KEY = 'neoinsent.dashboardPeriod'
 const FIRST_YEAR_KEY = 'neoinsent.dashboardFirstYear'
-/** At least this many years (the current one included) are always offered. */
-const MIN_YEARS_SHOWN = 5
-
-/** Current year back to the first year with an invoice, and at least the last five years. */
-function yearOptions(currentYear: number, firstYear: number | null): number[] {
-  const oldest = Math.min(firstYear ?? currentYear, currentYear - (MIN_YEARS_SHOWN - 1))
-  return Array.from({ length: currentYear - oldest + 1 }, (_, i) => currentYear - i)
-}
-
 /** The first year the server last reported, so a remembered older year is valid before it answers. */
 function loadFirstYear(): number | null {
   try {
@@ -127,8 +113,6 @@ export function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [attempt, setAttempt] = useState(0)
-  const yearId = useId()
-  const quarterId = useId()
 
   useEffect(() => {
     let cancelled = false
@@ -174,37 +158,7 @@ export function DashboardPage() {
         </Link>
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, margin: '20px 0' }}>
-        <div>
-          <label htmlFor={yearId}>Year</label>
-          <select
-            id={yearId}
-            value={period.year}
-            onChange={(e) => choose({ ...period, year: Number(e.target.value) })}
-          >
-            {yearOptions(currentYear, firstYear).map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor={quarterId}>Quarter</label>
-          <select
-            id={quarterId}
-            value={period.quarter ?? ''}
-            onChange={(e) =>
-              choose({ ...period, quarter: e.target.value === '' ? null : (Number(e.target.value) as Quarter) })
-            }
-          >
-            <option value="">Whole year</option>
-            {[1, 2, 3, 4].map((q) => (
-              <option key={q} value={q}>{`Q${q}`}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <PeriodPicker period={period} years={yearOptions(currentYear, firstYear)} onChange={choose} />
 
       {error ? (
         <div>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -31,6 +31,16 @@ describe('App', () => {
     const logo = screen.getByRole('img', { name: 'NeoInsent' })
     expect(logo).toHaveAttribute('src', '/logo.png')
     expect(logo.closest('a')).toHaveAttribute('href', '/')
+  })
+
+  it('has a Tax link in the header that routes to the tax records page', () => {
+    const fetchMock = vi.fn((_url: string) => new Promise(() => {}))
+    vi.stubGlobal('fetch', fetchMock)
+    renderAt('/tax')
+    const nav = screen.getByRole('navigation')
+    expect(within(nav).getByRole('link', { name: 'Tax' })).toHaveAttribute('href', '/tax')
+    expect(screen.getByRole('heading', { name: 'Tax records' })).toBeInTheDocument()
+    expect(fetchMock.mock.calls[0][0]).toMatch(/^\/api\/tax\?year=\d{4}&quarter=[1-4]$/)
   })
 
   it('routes /invoices/new to the invoice form', () => {

@@ -2,6 +2,7 @@ import { Link, Route, Routes, useParams } from 'react-router-dom'
 import { DashboardPage } from './routes/DashboardPage'
 import { InvoiceDetailPage } from './routes/InvoiceDetailPage'
 import { InvoiceFormPage } from './routes/InvoiceFormPage'
+import { TaxPage } from './routes/TaxPage'
 
 /** Keyed by id so moving from one invoice to another starts with fresh page state. */
 function InvoiceDetailRoute() {
@@ -28,10 +29,13 @@ function NotFound() {
 export function App() {
   return (
     <>
-      <header style={{ marginBottom: 24 }}>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 24 }}>
         <Link to="/">
           <img src="/logo.png" alt="NeoInsent" style={{ height: 40 }} />
         </Link>
+        <nav aria-label="Main">
+          <Link to="/tax">Tax</Link>
+        </nav>
       </header>
       <main>
         <Routes>
@@ -39,6 +43,7 @@ export function App() {
           <Route path="/invoices/new" element={<InvoiceFormPage key="new" mode="new" />} />
           <Route path="/invoices/:id/edit" element={<EditInvoiceRoute />} />
           <Route path="/invoices/:id" element={<InvoiceDetailRoute />} />
+          <Route path="/tax" element={<TaxPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
