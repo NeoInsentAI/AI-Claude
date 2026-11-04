@@ -31,19 +31,37 @@ function resolveInDataDir(relPath: string): string {
   return abs
 }
 
+export interface WritePdfOptions {
+  /**
+   * false: refuse to replace an existing file (rejects with EEXIST, the file untouched). Finalize
+   * uses this so a freshly issued invoice can never overwrite another invoice's PDF. Default true.
+   */
+  overwrite?: boolean
+}
+
 /**
  * Renders the invoice and writes it to `relPath` (relative to the data folder): first to a
- * temporary file in the same folder, then renamed into place, so the PDF is either complete or
+ * temporary file in the same folder, then moved into place, so the PDF is either complete or
  * absent — never half-written. Folders are created owner-only. Returns the absolute path.
  */
-export async function writeInvoicePdf(model: InvoicePdfModel, relPath: string): Promise<string> {
+export async function writeInvoicePdf(
+  model: InvoicePdfModel,
+  relPath: string,
+  { overwrite = true }: WritePdfOptions = {},
+): Promise<string> {
   const abs = resolveInDataDir(relPath)
   const buffer = await renderInvoicePdf(model)
   mkdirPrivate(path.dirname(abs))
   const tmp = `${abs}.${randomUUID()}.tmp`
   try {
     await fs.promises.writeFile(tmp, buffer, { mode: 0o600, flag: 'wx' })
-    await fs.promises.rename(tmp, abs)
+    if (overwrite) {
+      await fs.promises.rename(tmp, abs)
+    } else {
+      // link() fails with EEXIST instead of replacing, atomically.
+      await fs.promises.link(tmp, abs)
+      await fs.promises.unlink(tmp)
+    }
   } catch (error) {
     await fs.promises.rm(tmp, { force: true })
     throw error
@@ -58,7 +76,9 @@ export type EnsurePdfResult =
 
 /**
  * The absolute path of a final invoice's PDF, writing it first if it was never written (a failed
- * write right after finalize) or the file has gone missing. A re-render uses only what was stored
+ * write right after finalize) or the file has gone missing. If the file is already at its place
+ * but `pdf_path` was never recorded (the write succeeded, recording it failed), the file is kept
+ * and recorded. A re-render uses only what was stored
  * at finalize — number, amounts, lines and the client snapshot — never the live client.
  */
 export async function ensureInvoicePdf(id: string): Promise<EnsurePdfResult> {
@@ -71,6 +91,11 @@ export async function ensureInvoicePdf(id: string): Promise<EnsurePdfResult> {
     if (fs.existsSync(existing)) return { status: 'ok', path: existing }
   }
   const relPath = pdfRelPath(invoice.invoice_number, invoice.issue_date)
+  const expected = resolveInDataDir(relPath)
+  if (fs.existsSync(expected)) {
+    await setInvoicePdfPath(id, relPath)
+    return { status: 'ok', path: expected }
+  }
   const model = buildInvoicePdfModel(pdfInputForStoredInvoice(invoice))
   const abs = await writeInvoicePdf(model, relPath)
   await setInvoicePdfPath(id, relPath)

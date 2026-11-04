@@ -261,6 +261,14 @@ describe('InvoiceFormPage — new', () => {
     expect(select).toHaveAccessibleDescription('Used for the PDF and the email to the client.')
   })
 
+  it('explains that the issue date becomes the finalize date', async () => {
+    stubFetch(() => undefined)
+    renderAt('/invoices/new')
+    expect(screen.getByLabelText('Issue date')).toHaveAccessibleDescription(
+      'Becomes the date you finalize the invoice; the due date moves with it.',
+    )
+  })
+
   it('marks the date inputs as required', () => {
     stubFetch(() => undefined)
     renderAt('/invoices/new')

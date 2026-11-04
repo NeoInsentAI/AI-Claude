@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import fs from 'node:fs'
+import path from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
-import { fromCents, getDb, nextInvoiceNumber, toCents, toHundredths, withTransaction } from './db'
+import { fromCents, getDataDir, getDb, nextInvoiceNumber, toCents, toHundredths, withTransaction } from './db'
 import { CLIENT_COLUMNS, toClient, type Client, type NewClient } from './clientsRepo'
 import { vatMismatchMessage } from './checkClientForDraft'
 import { buildInvoicePdfModel, pdfInputForStoredInvoice, type InvoicePdfModel } from './invoicePdfModel'
@@ -355,6 +357,8 @@ export type FinalizeResult =
   | { status: 'vat_mismatch'; message: string }
   /** The invoice data can't be printed as a valid invoice (the PDF rules refused it). */
   | { status: 'invalid'; message: string }
+  /** The next number already has a PDF in the invoices folder (the database was restored alone). */
+  | { status: 'number_conflict'; message: string }
   | { status: 'ok'; invoice: InvoiceWithDetails; pdfModel: InvoicePdfModel }
 
 /** Thrown inside the finalize transaction to roll it back and return `result` instead. */
@@ -382,10 +386,57 @@ function formatInvoiceNumber(year: number, seq: number): string {
   return `NEO-${year}-${String(seq).padStart(4, '0')}`
 }
 
+/** The local calendar date of `d` as YYYY-MM-DD (not UTC: the invoice date is the user's day). */
+function localIsoDate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+function utcDay(isoDate: string): number {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  return Date.UTC(y, m - 1, d)
+}
+
+/** Whole days from `from` to `to` (YYYY-MM-DD), never negative. */
+function daysBetween(from: string, to: string): number {
+  return Math.max(0, Math.round((utcDay(to) - utcDay(from)) / DAY_MS))
+}
+
+function addDays(isoDate: string, days: number): string {
+  return new Date(utcDay(isoDate) + days * DAY_MS).toISOString().slice(0, 10)
+}
+
+const PDF_FILE_NAME = /^NEO-(\d{4})-(\d{4,})\.pdf$/
+
+/**
+ * The highest invoice sequence for `year` that already has a PDF in `<dataDir>/invoices/<year>/`
+ * (0 if none or the folder is missing). Synchronous, so it can run inside the finalize transaction.
+ */
+function highestPdfSequence(year: number): number {
+  let names: string[]
+  try {
+    names = fs.readdirSync(path.join(getDataDir(), 'invoices', String(year)))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 0
+    throw error
+  }
+  let highest = 0
+  for (const name of names) {
+    const match = PDF_FILE_NAME.exec(name)
+    if (match && Number(match[1]) === year) highest = Math.max(highest, Number(match[2]))
+  }
+  return highest
+}
+
 /**
  * Issues a draft: in ONE transaction it re-checks the VAT treatment against the live client,
- * recomputes the stored line and invoice totals from the lines, takes the next gap-free number
- * for the issue year, freezes the client snapshot, sets status 'final', and builds the PDF model
+ * recomputes the stored line and invoice totals from the lines, dates the invoice today (the due
+ * date moves with it, keeping the draft's payment term), takes the next gap-free number for that
+ * year — refusing one that already has a PDF on disk, which means the database was restored from
+ * an older backup without the invoices folder — freezes the client snapshot, sets status
+ * 'final', and builds the PDF model
  * from exactly what was stored. Any refusal or error rolls everything back — the counter
  * included — so a number is only ever consumed by an invoice that is actually issued.
  *
@@ -435,15 +486,30 @@ export async function finalizeDraftInvoice(id: string, now: Date = new Date()): 
         'update invoices set subtotal_cents = ?, vat_amount_cents = ?, total_cents = ? where id = ?',
       ).run(totals.subtotal_cents, totals.vat_amount_cents, totals.total_cents, id)
 
-      const year = Number(row.issue_date.slice(0, 4))
-      const invoiceNumber = formatInvoiceNumber(year, nextInvoiceNumber(db, year))
+      // An invoice is dated the day it is issued; the due date keeps the draft's payment term.
+      const issueDate = localIsoDate(now)
+      const dueDate = addDays(issueDate, daysBetween(row.issue_date, row.due_date))
+
+      const year = Number(issueDate.slice(0, 4))
+      const seq = nextInvoiceNumber(db, year)
+      const onDisk = highestPdfSequence(year)
+      if (onDisk >= seq) {
+        throw new FinalizeRollback({
+          status: 'number_conflict',
+          message:
+            `Invoice ${formatInvoiceNumber(year, onDisk)} already exists in your invoices folder, but the ` +
+            "database doesn't know it — it looks restored from an older backup. Restore the database " +
+            'and the invoices folder from the same moment. Nothing was finalized.',
+        })
+      }
+      const invoiceNumber = formatInvoiceNumber(year, seq)
       const result = db
         .prepare(
-          `update invoices set status = 'final', invoice_number = ?, client_snapshot = ?,
-                               finalized_at = ?, updated_at = ?
+          `update invoices set status = 'final', invoice_number = ?, issue_date = ?, due_date = ?,
+                               client_snapshot = ?, finalized_at = ?, updated_at = ?
            where id = ? and status = 'draft'`,
         )
-        .run(invoiceNumber, JSON.stringify(snapshotOf(client)), timestamp, timestamp, id)
+        .run(invoiceNumber, issueDate, dueDate, JSON.stringify(snapshotOf(client)), timestamp, timestamp, id)
       if (result.changes !== 1) throw new Error(`Invoice ${id}: finalize updated ${result.changes} rows`)
 
       const invoice = loadInvoice(db, id) as InvoiceWithDetails

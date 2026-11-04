@@ -13,7 +13,8 @@ const PDF_ERROR =
 /**
  * POST /api/invoices/:id/finalize — issues a draft: backs up the database, then (in one
  * transaction) assigns the next gap-free invoice number, freezes the client snapshot and marks it
- * final; then writes the PDF. A PDF failure after commit doesn't undo the (legally issued)
+ * final (refusing a number whose PDF already exists, i.e. a database restored without its
+ * invoices folder); then writes the PDF. A PDF failure after commit doesn't undo the (legally issued)
  * invoice: it is reported as `pdfError` and the PDF is re-created on demand later.
  */
 export default async function handler(req: Request, res: Response) {
@@ -70,6 +71,7 @@ export default async function handler(req: Request, res: Response) {
       res.status(409).json({ error: ALREADY_FINAL })
       return
     case 'vat_mismatch':
+    case 'number_conflict':
       res.status(409).json({ error: result.message })
       return
     case 'invalid':
@@ -77,15 +79,25 @@ export default async function handler(req: Request, res: Response) {
       return
   }
 
+  // The invoice is issued from here on: nothing below may turn this into an error response.
   const { invoice, pdfModel } = result
+  let pdfPath: string | null = null
   try {
     const relPath = pdfRelPath(invoice.invoice_number as string, invoice.issue_date)
-    await writeInvoicePdf(pdfModel, relPath)
+    // Never overwrite: an existing file would be another invoice's PDF.
+    await writeInvoicePdf(pdfModel, relPath, { overwrite: false })
     await setInvoicePdfPath(id, relPath)
+    pdfPath = relPath
   } catch (error) {
-    console.error(`Invoice ${invoice.invoice_number} was finalized but its PDF could not be written`, error)
-    res.status(200).json({ invoice: (await getInvoice(id).catch(() => null)) ?? invoice, pdfError: PDF_ERROR })
-    return
+    console.error(`Invoice ${invoice.invoice_number} was finalized but its PDF could not be written or recorded`, error)
   }
-  res.status(200).json({ invoice: (await getInvoice(id)) ?? invoice })
+
+  let reloaded = null
+  try {
+    reloaded = await getInvoice(id)
+  } catch (error) {
+    console.error(`Invoice ${invoice.invoice_number} was finalized but could not be reloaded`, error)
+  }
+  const body = reloaded ?? { ...invoice, pdf_path: pdfPath }
+  res.status(200).json(pdfPath ? { invoice: body } : { invoice: body, pdfError: PDF_ERROR })
 }

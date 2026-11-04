@@ -540,6 +540,12 @@ describe('backups', () => {
     }
   })
 
+  it('backupDb makes the copy owner-only', () => {
+    const dest = path.join(tmpDir, 'private.db')
+    backupDb(db, dest)
+    expect(fs.statSync(dest).mode & 0o777).toBe(0o600)
+  })
+
   it('backupDb refuses to overwrite an existing file', () => {
     const dest = path.join(tmpDir, 'copy.db')
     fs.writeFileSync(dest, 'x')

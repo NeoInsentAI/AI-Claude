@@ -219,7 +219,17 @@ export function InvoiceFormPage({ mode }: Props) {
 
       <div className="card">
         <label htmlFor="issue-date">Issue date</label>
-        <input id="issue-date" type="date" required value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+        <input
+          id="issue-date"
+          type="date"
+          required
+          aria-describedby="issue-date-hint"
+          value={issueDate}
+          onChange={(e) => setIssueDate(e.target.value)}
+        />
+        <p id="issue-date-hint" style={{ color: 'var(--ink-soft)', fontSize: '0.85rem', marginTop: 4 }}>
+          Becomes the date you finalize the invoice; the due date moves with it.
+        </p>
 
         <label htmlFor="due-date">Due date</label>
         <input id="due-date" type="date" required value={dueDate} onChange={(e) => setDueDate(e.target.value)} />

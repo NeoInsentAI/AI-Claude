@@ -31,7 +31,8 @@ afterEach(() => {
 })
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000'
-const NOW = new Date('2026-11-04T09:30:00.000Z')
+// Local time: the invoice date is the user's calendar day.
+const NOW = new Date(2026, 10, 4, 10, 30)
 
 const acmeInput: NewClient = {
   name: 'Acme BV',
@@ -117,12 +118,59 @@ describe('finalizeDraftInvoice', () => {
     expect(counter(2026)).toBe(2)
   })
 
-  it('takes the year from the issue date, not from now', async () => {
-    const draft = await createDraftInvoice(draftFor(acme, { issue_date: '2027-01-02', due_date: '2027-01-16' }))
+  it('dates the invoice the day it is finalized, keeps the payment term and numbers it in that year', async () => {
+    const draft = await createDraftInvoice(draftFor(acme, { issue_date: '2026-12-10', due_date: '2026-12-24' }))
+
+    const result = await finalizeDraftInvoice(draft.id, new Date(2027, 0, 5, 9, 0))
+
+    expect(result.status).toBe('ok')
+    if (result.status !== 'ok') return
+    expect(result.invoice).toMatchObject({
+      issue_date: '2027-01-05',
+      due_date: '2027-01-19',
+      invoice_number: 'NEO-2027-0001',
+    })
+    expect(storedRow(draft.id)).toMatchObject({ issue_date: '2027-01-05', due_date: '2027-01-19' })
+    expect(result.pdfModel).toMatchObject({
+      invoiceNumber: 'NEO-2027-0001',
+      issueDate: '05-01-2027',
+      dueDate: '19-01-2027',
+    })
+    expect(counter(2027)).toBe(1)
+    expect(counter(2026)).toBeNull()
+  })
+
+  it('keeps the dates of a draft finalized on its own issue date', async () => {
+    const draft = await createDraftInvoice(draftFor(acme, { issue_date: '2026-11-04', due_date: '2026-12-04' }))
 
     const result = await finalizeDraftInvoice(draft.id, NOW)
 
-    expect(result.status === 'ok' && result.invoice.invoice_number).toBe('NEO-2027-0001')
+    expect(result.status === 'ok' && result.invoice).toMatchObject({
+      issue_date: '2026-11-04',
+      due_date: '2026-12-04',
+      invoice_number: 'NEO-2026-0001',
+    })
+  })
+
+  it("refuses a number that already has a PDF in the invoices folder ('number_conflict')", async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    const yearDir = path.join(tmpDir, 'invoices', '2026')
+    fs.mkdirSync(yearDir, { recursive: true })
+    fs.writeFileSync(path.join(yearDir, 'NEO-2026-0001.pdf'), 'issued earlier')
+    fs.writeFileSync(path.join(yearDir, 'NEO-2026-0003.pdf'), 'issued earlier')
+    fs.writeFileSync(path.join(yearDir, 'notes.txt'), 'ignored')
+    const before = storedRow(draft.id)
+
+    const result = await finalizeDraftInvoice(draft.id, NOW)
+
+    expect(result).toEqual({
+      status: 'number_conflict',
+      message:
+        "Invoice NEO-2026-0003 already exists in your invoices folder, but the database doesn't know it — " +
+        'it looks restored from an older backup. Restore the database and the invoices folder from the ' +
+        'same moment. Nothing was finalized.',
+    })
+    expect(storedRow(draft.id)).toEqual(before)
     expect(counter(2026)).toBeNull()
   })
 

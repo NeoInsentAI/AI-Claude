@@ -319,6 +319,7 @@ export function withTransaction<T>(db: DatabaseSync, fn: () => Synchronous<T>): 
 export function backupDb(db: DatabaseSync, destPath: string): void {
   if (fs.existsSync(destPath)) throw new Error(`Backup destination already exists: ${destPath}`)
   db.prepare('VACUUM INTO ?').run(destPath)
+  fs.chmodSync(destPath, 0o600) // invoices and client data: owner-only
 }
 
 const BACKUP_FILE = /^neoinsent-\d{4}-\d{2}-\d{2}\.db$/

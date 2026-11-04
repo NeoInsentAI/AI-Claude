@@ -10,11 +10,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDb, getDb } from '../_lib/db'
 import * as invoicePdf from '../_lib/invoicePdf'
 import * as pdfFiles from '../_lib/invoicePdfFiles'
+import * as invoicesRepo from '../_lib/invoicesRepo'
 import { createApp } from '../../server/app'
 
 vi.mock('../_lib/invoicePdf', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../_lib/invoicePdf')>()
   return { ...actual, renderInvoicePdf: vi.fn(actual.renderInvoicePdf) }
+})
+
+vi.mock('../_lib/invoicesRepo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../_lib/invoicesRepo')>()
+  return {
+    ...actual,
+    getInvoice: vi.fn(actual.getInvoice),
+    setInvoicePdfPath: vi.fn(actual.setInvoicePdfPath),
+  }
 })
 
 const PORT = 5174
@@ -30,9 +40,13 @@ beforeEach(() => {
   process.env.NEOINSENT_DATA_DIR = dataDir
   closeDb()
   vi.mocked(invoicePdf.renderInvoicePdf).mockClear()
+  // Finalize dates the invoice today (local): pin today so the numbers stay in 2026.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 10, 4, 10, 30))
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
   closeDb()
   fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -177,6 +191,92 @@ describe('POST /api/invoices/:id/finalize', () => {
 
     const later = await pdfFiles.ensureInvoicePdf(invoiceId)
     expect(later).toEqual({ status: 'ok', path: path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf') })
+  })
+
+  it('answers 200 with pdfError when recording the PDF fails, and the written PDF is accepted later', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server)
+    vi.mocked(invoicesRepo.setInvoicePdfPath).mockRejectedValueOnce(new Error('disk I/O error'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(200)
+    expect(res.body.pdfError).toMatch(/could not be created yet/)
+    expect(res.body.invoice).toMatchObject({ status: 'final', invoice_number: 'NEO-2026-0001', pdf_path: null })
+    const abs = path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    const written = fs.readFileSync(abs)
+    expect(vi.mocked(invoicePdf.renderInvoicePdf)).toHaveBeenCalledTimes(1)
+
+    expect(await pdfFiles.ensureInvoicePdf(invoiceId)).toEqual({ status: 'ok', path: abs })
+    expect(vi.mocked(invoicePdf.renderInvoicePdf)).toHaveBeenCalledTimes(1) // not re-rendered
+    expect(fs.readFileSync(abs).equals(written)).toBe(true)
+    expect((await invoicesRepo.getInvoice(invoiceId))?.pdf_path).toBe('invoices/2026/NEO-2026-0001.pdf')
+  })
+
+  it('still answers 200 with the issued invoice when re-reading it afterwards fails', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server)
+    const actualGetInvoice = vi.mocked(invoicesRepo.getInvoice).getMockImplementation()!
+    vi.mocked(invoicesRepo.getInvoice)
+      .mockImplementationOnce(actualGetInvoice) // the route's pre-check
+      .mockRejectedValueOnce(new Error('database is locked')) // the final re-read
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(200)
+    expect(res.body.pdfError).toBeUndefined()
+    expect(res.body.invoice).toMatchObject({
+      id: invoiceId,
+      status: 'final',
+      invoice_number: 'NEO-2026-0001',
+      pdf_path: 'invoices/2026/NEO-2026-0001.pdf',
+    })
+  })
+
+  it('dates the invoice the day it is finalized and moves the due date with it', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server) // 2026-11-02, due 2026-11-16
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(200)
+    expect(res.body.invoice).toMatchObject({ issue_date: '2026-11-04', due_date: '2026-11-18' })
+  })
+
+  it('refuses to reuse an issued number after the database alone was restored (409)', async () => {
+    const server = app()
+    const first = await createDraft(server)
+    const issued = await finalize(server, first.invoiceId)
+    expect(issued.body.invoice.invoice_number).toBe('NEO-2026-0001')
+    const pdfPath = path.join(dataDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    const original = fs.readFileSync(pdfPath)
+
+    // Simulate restoring an older database while keeping the invoices folder: forget the issued
+    // invoice and its number (the delete trigger is bypassed only for this simulation).
+    const db = getDb()
+    db.exec('drop trigger invoices_final_no_delete; drop trigger invoice_items_final_no_delete')
+    db.prepare('delete from invoices where id = ?').run(first.invoiceId)
+    db.prepare('delete from invoice_counters').run()
+
+    const second = await createDraft(server)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const res = await finalize(server, second.invoiceId)
+
+    expect(res.status).toBe(409)
+    expect(res.body).toEqual({
+      error:
+        "Invoice NEO-2026-0001 already exists in your invoices folder, but the database doesn't know it — " +
+        'it looks restored from an older backup. Restore the database and the invoices folder from the ' +
+        'same moment. Nothing was finalized.',
+    })
+    expect(counter()).toBeNull()
+    expect(getDb().prepare('select status, invoice_number from invoices where id = ?').get(second.invoiceId)).toEqual({
+      status: 'draft',
+      invoice_number: null,
+    })
+    expect(fs.readFileSync(pdfPath).equals(original)).toBe(true)
   })
 
   it('does not finalize when the backup fails', async () => {

@@ -22,8 +22,17 @@ Everything is in one folder, `~/NeoInsent Invoicing` by default (override with
 
 - `neoinsent.db` — the database (final invoices are a legal record: keep them 7 years)
 - `invoices/` — PDFs of finalized invoices
-- `backups/` — a daily copy (`neoinsent-YYYY-MM-DD.db`, the newest 30 are kept) and a copy taken
-  before each schema upgrade (`pre-migration-v<from>-to-v<to>-<timestamp>.db`, never deleted)
+- `backups/` — a daily copy (`neoinsent-YYYY-MM-DD.db`, the newest 30 are kept), a copy taken
+  before each schema upgrade (`pre-migration-v<from>-to-v<to>-<timestamp>.db`, never deleted) and
+  a copy taken before each invoice is finalized (`pre-finalize-<timestamp>.db`, the newest 20 are
+  kept)
+
+### Restoring
+
+Quit the app first. Restore `neoinsent.db` together with the `invoices/` folder from the same
+moment — never the database alone: an older database would not know the invoices issued since,
+and would hand out their numbers again. The app refuses to finalize an invoice whose number
+already has a PDF in `invoices/`, and says so.
 
 ## Scripts
 

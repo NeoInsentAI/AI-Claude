@@ -39,6 +39,8 @@ afterEach(() => {
 })
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000'
+// Finalize dates the invoice today (local); a fixed day keeps the numbers in 2026.
+const NOW = new Date(2026, 10, 4, 10, 30)
 
 const acmeInput: NewClient = {
   name: 'Acme BV',
@@ -68,7 +70,7 @@ function draftFor(client: Client): DraftInvoiceInput {
 async function finalizedInvoice() {
   const client = await createClient(acmeInput)
   const draft = await createDraftInvoice(draftFor(client))
-  const result = await finalizeDraftInvoice(draft.id)
+  const result = await finalizeDraftInvoice(draft.id, NOW)
   if (result.status !== 'ok') throw new Error(`finalize failed: ${result.status}`)
   return { client, invoice: result.invoice, pdfModel: result.pdfModel }
 }
@@ -100,6 +102,41 @@ describe('writeInvoicePdf', () => {
     expect(fs.statSync(abs).mode & 0o777).toBe(0o600)
     expect(filesUnder(path.join(tmpDir, 'invoices')).filter((f) => f.endsWith('.tmp'))).toEqual([])
   })
+
+  it('replaces an existing file by default', async () => {
+    const { pdfModel } = await finalizedInvoice()
+    const abs = path.join(tmpDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, 'old')
+
+    await writeInvoicePdf(pdfModel, 'invoices/2026/NEO-2026-0001.pdf')
+
+    expect(fs.readFileSync(abs).subarray(0, 4).toString('latin1')).toBe('%PDF')
+  })
+
+  it('with overwrite: false, refuses an existing file and leaves it intact', async () => {
+    const { pdfModel } = await finalizedInvoice()
+    const abs = path.join(tmpDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, 'issued earlier')
+
+    await expect(
+      writeInvoicePdf(pdfModel, 'invoices/2026/NEO-2026-0001.pdf', { overwrite: false }),
+    ).rejects.toMatchObject({ code: 'EEXIST' })
+
+    expect(fs.readFileSync(abs, 'utf8')).toBe('issued earlier')
+    expect(filesUnder(path.join(tmpDir, 'invoices')).filter((f) => f.endsWith('.tmp'))).toEqual([])
+  })
+
+  it('with overwrite: false, writes a new file owner-only, leaving no temporary files', async () => {
+    const { pdfModel } = await finalizedInvoice()
+
+    const abs = await writeInvoicePdf(pdfModel, 'invoices/2026/NEO-2026-0001.pdf', { overwrite: false })
+
+    expect(fs.readFileSync(abs).subarray(0, 4).toString('latin1')).toBe('%PDF')
+    expect(fs.statSync(abs).mode & 0o777).toBe(0o600)
+    expect(filesUnder(path.join(tmpDir, 'invoices')).filter((f) => f.endsWith('.tmp'))).toEqual([])
+  })
 })
 
 describe('ensureInvoicePdf', () => {
@@ -124,6 +161,19 @@ describe('ensureInvoicePdf', () => {
     expect(await ensureInvoicePdf(invoice.id)).toEqual({ status: 'ok', path: abs })
     expect(fs.readFileSync(abs, 'utf8')).toBe('existing')
     expect(invoicePdfModel.buildInvoicePdfModel).not.toHaveBeenCalled()
+  })
+
+  it('records a PDF that was written but whose pdf_path was never stored, without re-rendering', async () => {
+    const { invoice } = await finalizedInvoice()
+    const abs = path.join(tmpDir, 'invoices', '2026', 'NEO-2026-0001.pdf')
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, 'written at finalize')
+    vi.mocked(invoicePdfModel.buildInvoicePdfModel).mockClear()
+
+    expect(await ensureInvoicePdf(invoice.id)).toEqual({ status: 'ok', path: abs })
+    expect(fs.readFileSync(abs, 'utf8')).toBe('written at finalize')
+    expect(invoicePdfModel.buildInvoicePdfModel).not.toHaveBeenCalled()
+    expect((await getInvoice(invoice.id))?.pdf_path).toBe('invoices/2026/NEO-2026-0001.pdf')
   })
 
   it('re-renders a deleted PDF from the client snapshot, not the edited live client', async () => {
