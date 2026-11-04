@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeInvoiceTotals, computeLine } from './invoiceMath'
+import { computeInvoiceTotals, computeLine, computeStoredLineCents } from './invoiceMath'
 
 describe('computeLine', () => {
   it('computes subtotal, vat, and total for a standard-rate line', () => {
@@ -114,5 +114,46 @@ describe('computeInvoiceTotals', () => {
         { quantity: 1.5, unitPrice: 6.67, vatRate: 0 },
       ]),
     ).toEqual({ subtotal: 30.03, vatAmount: 0, total: 30.03 })
+  })
+})
+
+describe('computeStoredLineCents', () => {
+  it('computes a stored line in integer cents', () => {
+    // 3 x 19.99 = 59.97, 21% VAT 12.5937 -> 12.59
+    expect(computeStoredLineCents({ quantityHundredths: 300, unitPriceCents: 1999, vatRate: 21 })).toEqual({
+      subtotalCents: 5997,
+      vatCents: 1259,
+    })
+  })
+
+  it('rounds exact halves up like computeLine (2.5 x 33.33 = 83.325 -> 83.33)', () => {
+    expect(computeStoredLineCents({ quantityHundredths: 250, unitPriceCents: 3333, vatRate: 0 })).toEqual({
+      subtotalCents: 8333,
+      vatCents: 0,
+    })
+  })
+
+  it('agrees with computeLine on boundary inputs', () => {
+    const lines = [
+      { quantity: 1.5, unitPrice: 6.67, vatRate: 9 },
+      { quantity: 3, unitPrice: 19.99, vatRate: 9 },
+      { quantity: 0.33, unitPrice: 15.15, vatRate: 21 },
+      { quantity: 7, unitPrice: 0.05, vatRate: 21 },
+    ]
+    for (const line of lines) {
+      const euros = computeLine(line)
+      const cents = computeStoredLineCents({
+        quantityHundredths: Math.round(line.quantity * 100),
+        unitPriceCents: Math.round(line.unitPrice * 100),
+        vatRate: line.vatRate,
+      })
+      expect(cents.subtotalCents / 100).toBe(euros.lineSubtotal)
+      expect(cents.vatCents / 100).toBe(euros.lineVat)
+    }
+  })
+
+  it('rejects non-integer stored values', () => {
+    expect(() => computeStoredLineCents({ quantityHundredths: 1.5, unitPriceCents: 100, vatRate: 21 })).toThrow()
+    expect(() => computeStoredLineCents({ quantityHundredths: 100, unitPriceCents: Number.NaN, vatRate: 21 })).toThrow()
   })
 })

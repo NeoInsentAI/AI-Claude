@@ -50,12 +50,49 @@ function computeLineCents(line: InvoiceLineInput): { subtotal: bigint; vat: bigi
   if (!Number.isFinite(line.quantity) || !Number.isFinite(line.unitPrice) || !Number.isFinite(line.vatRate)) {
     throw new Error(`Invalid invoice line input: ${JSON.stringify(line)}`)
   }
-  const qtyHundredths = BigInt(Math.round(line.quantity * 100))
-  const priceCents = BigInt(Math.round(line.unitPrice * 100))
-  const rateBasisPoints = BigInt(Math.round(line.vatRate * 100))
+  return lineCentsFromIntegers(
+    BigInt(Math.round(line.quantity * 100)),
+    BigInt(Math.round(line.unitPrice * 100)),
+    line.vatRate,
+  )
+}
+
+function lineCentsFromIntegers(
+  qtyHundredths: bigint,
+  priceCents: bigint,
+  vatRate: number,
+): { subtotal: bigint; vat: bigint } {
+  const rateBasisPoints = BigInt(Math.round(vatRate * 100))
   const subtotal = roundHalfUpDiv(qtyHundredths * priceCents, 100n)
   const vat = roundHalfUpDiv(subtotal * rateBasisPoints, 10_000n)
   return { subtotal, vat }
+}
+
+/** A line as the database stores it: integer hundredths and cents. */
+export interface StoredLineInput {
+  quantityHundredths: number
+  unitPriceCents: number
+  vatRate: number
+}
+
+/**
+ * A stored line's amount excl. VAT and its VAT, in integer cents, rounded exactly like
+ * computeLine (so the per-line amounts add up to the invoice's stored totals).
+ */
+export function computeStoredLineCents(line: StoredLineInput): { subtotalCents: number; vatCents: number } {
+  if (
+    !Number.isSafeInteger(line.quantityHundredths) ||
+    !Number.isSafeInteger(line.unitPriceCents) ||
+    !Number.isFinite(line.vatRate)
+  ) {
+    throw new Error(`Invalid stored invoice line: ${JSON.stringify(line)}`)
+  }
+  const { subtotal, vat } = lineCentsFromIntegers(
+    BigInt(line.quantityHundredths),
+    BigInt(line.unitPriceCents),
+    line.vatRate,
+  )
+  return { subtotalCents: Number(subtotal), vatCents: Number(vat) }
 }
 
 function toEuros(cents: bigint): number {

@@ -11,6 +11,7 @@ import invoicePdfHandler from '../api/invoices/pdf'
 import invoiceSendHandler from '../api/invoices/send'
 import invoiceEmailPreviewHandler from '../api/invoices/emailPreview'
 import emailStatusHandler from '../api/email/status'
+import dashboardHandler from '../api/dashboard'
 
 type Handler = (req: Request, res: Response) => unknown
 
@@ -145,6 +146,7 @@ export function createApp({ port, distDir = path.resolve(import.meta.dirname, '.
   app.all('/api/invoices/:id/send', wrap(invoiceSendHandler))
   app.all('/api/invoices/:id/email-preview', wrap(invoiceEmailPreviewHandler))
   app.all('/api/email/status', wrap(emailStatusHandler))
+  app.all('/api/dashboard', wrap(dashboardHandler))
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Not found' })
   })

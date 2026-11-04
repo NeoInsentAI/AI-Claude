@@ -17,10 +17,13 @@ function renderAt(path: string | { pathname: string; state?: unknown }) {
 }
 
 describe('App', () => {
-  it('renders the start view with a New invoice link', () => {
+  it('routes / to the dashboard', () => {
+    const fetchMock = vi.fn((_url: string) => new Promise(() => {}))
+    vi.stubGlobal('fetch', fetchMock)
     renderAt('/')
-    expect(screen.getByRole('heading', { name: 'NeoInsent Invoicing' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Invoices' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '+ New invoice' })).toHaveAttribute('href', '/invoices/new')
+    expect(fetchMock.mock.calls[0][0]).toMatch(/^\/api\/dashboard\?year=\d{4}/)
   })
 
   it('shows the logo linking home', () => {

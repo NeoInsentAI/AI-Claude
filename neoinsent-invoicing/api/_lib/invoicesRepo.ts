@@ -6,7 +6,7 @@ import { fromCents, getDataDir, getDb, nextInvoiceNumber, toCents, toHundredths,
 import { CLIENT_COLUMNS, toClient, type Client, type NewClient } from './clientsRepo'
 import { vatMismatchMessage } from './checkClientForDraft'
 import { buildInvoicePdfModel, pdfInputForStoredInvoice, type InvoicePdfModel } from './invoicePdfModel'
-import { computeInvoiceTotals, computeLine } from '../../src/lib/invoiceMath'
+import { computeInvoiceTotals, computeLine, computeStoredLineCents } from '../../src/lib/invoiceMath'
 import { determineVatTreatment, type InvoiceVatTreatment } from '../../src/lib/vat'
 
 // The database stores money as integer cents and quantities as integer hundredths; everything
@@ -79,11 +79,12 @@ export interface InvoiceSummary {
   id: string
   invoice_number: string | null
   client_id: string
-  /** The live client's current name. */
+  /** The client's name as invoiced (from the snapshot) for a final invoice; the live name for a draft. */
   client_name: string
   status: 'draft' | 'final'
   vat_treatment: InvoiceVatTreatment
   issue_date: string
+  due_date: string
   subtotal: number
   vat_amount: number
   total: number
@@ -95,6 +96,35 @@ export interface InvoiceSummary {
 export interface ListInvoicesFilter {
   fromDate?: string
   toDate?: string
+  status?: 'draft' | 'final'
+}
+
+/** An inclusive range of issue dates (YYYY-MM-DD). */
+export interface PeriodRange {
+  fromDate: string
+  toDate: string
+}
+
+export interface VatRateTotal {
+  /** VAT rate in percent (21, 9, 0). */
+  rate: number
+  /** Sum of the lines' amounts excl. VAT at this rate. */
+  base: number
+  vat: number
+}
+
+/** Totals over the final invoices issued in a period, in euros. */
+export interface PeriodSummary {
+  invoiceCount: number
+  subtotal: number
+  vatAmount: number
+  total: number
+  /** Per VAT rate, highest rate first; adds up to subtotal and vatAmount. */
+  vatByRate: VatRateTotal[]
+  /** Amount excl. VAT of EU reverse-charge invoices (ICP). */
+  reverseChargeRevenue: number
+  unpaidCount: number
+  unpaidTotal: number
 }
 
 interface InvoiceRow {
@@ -139,6 +169,7 @@ type SummaryRow = Pick<
   | 'status'
   | 'vat_treatment'
   | 'issue_date'
+  | 'due_date'
   | 'subtotal_cents'
   | 'vat_amount_cents'
   | 'total_cents'
@@ -193,6 +224,7 @@ function fromSummaryRow(row: SummaryRow): InvoiceSummary {
     status: row.status,
     vat_treatment: row.vat_treatment,
     issue_date: row.issue_date,
+    due_date: row.due_date,
     subtotal: fromCents(row.subtotal_cents),
     vat_amount: fromCents(row.vat_amount_cents),
     total: fromCents(row.total_cents),
@@ -294,11 +326,17 @@ export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<Inv
     conditions.push('i.issue_date <= ?')
     params.push(filter.toDate)
   }
+  if (filter.status) {
+    conditions.push('i.status = ?')
+    params.push(filter.status)
+  }
   const where = conditions.length ? `where ${conditions.join(' and ')}` : ''
   const rows = getDb()
     .prepare(
-      `select i.id, i.invoice_number, i.client_id, c.name as client_name, i.status,
-              i.vat_treatment, i.issue_date, i.subtotal_cents, i.vat_amount_cents, i.total_cents,
+      `select i.id, i.invoice_number, i.client_id,
+              -- A final invoice keeps the name it was issued to, even after the client is renamed.
+              coalesce(json_extract(i.client_snapshot, '$.name'), c.name) as client_name, i.status,
+              i.vat_treatment, i.issue_date, i.due_date, i.subtotal_cents, i.vat_amount_cents, i.total_cents,
               i.paid, i.pdf_path
        from invoices i join clients c on c.id = i.client_id
        ${where}
@@ -307,6 +345,75 @@ export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<Inv
     )
     .all(...params) as unknown as SummaryRow[]
   return rows.map(fromSummaryRow)
+}
+
+interface PeriodTotalsRow {
+  invoice_count: number
+  subtotal_cents: number
+  vat_amount_cents: number
+  total_cents: number
+  reverse_charge_cents: number
+  unpaid_count: number
+  unpaid_cents: number
+}
+
+/**
+ * Totals over the final invoices issued in `range` (inclusive). Sums run over integer cents and
+ * are converted to euros once at the end. The per-rate split recomputes each stored line's
+ * amount excl. VAT and VAT with invoiceMath's rounding, so it adds up to the invoices' totals.
+ */
+export async function summaryForPeriod(range: PeriodRange): Promise<PeriodSummary> {
+  const db = getDb()
+  const totals = db
+    .prepare(
+      `select count(*) as invoice_count,
+              coalesce(sum(subtotal_cents), 0) as subtotal_cents,
+              coalesce(sum(vat_amount_cents), 0) as vat_amount_cents,
+              coalesce(sum(total_cents), 0) as total_cents,
+              coalesce(sum(case when vat_treatment = 'eu_reverse_charge' then subtotal_cents end), 0)
+                as reverse_charge_cents,
+              coalesce(sum(case when paid = 0 then 1 else 0 end), 0) as unpaid_count,
+              coalesce(sum(case when paid = 0 then total_cents end), 0) as unpaid_cents
+       from invoices
+       where status = 'final' and issue_date between ? and ?`,
+    )
+    .get(range.fromDate, range.toDate) as unknown as PeriodTotalsRow
+
+  const lines = db
+    .prepare(
+      `select it.quantity_hundredths, it.unit_price_cents, it.vat_rate
+       from invoice_items it join invoices i on i.id = it.invoice_id
+       where i.status = 'final' and i.issue_date between ? and ?`,
+    )
+    .all(range.fromDate, range.toDate) as unknown as Pick<
+    InvoiceItemRow,
+    'quantity_hundredths' | 'unit_price_cents' | 'vat_rate'
+  >[]
+  const byRate = new Map<number, { baseCents: number; vatCents: number }>()
+  for (const line of lines) {
+    const cents = computeStoredLineCents({
+      quantityHundredths: line.quantity_hundredths,
+      unitPriceCents: line.unit_price_cents,
+      vatRate: line.vat_rate,
+    })
+    const entry = byRate.get(line.vat_rate) ?? { baseCents: 0, vatCents: 0 }
+    entry.baseCents += cents.subtotalCents
+    entry.vatCents += cents.vatCents
+    byRate.set(line.vat_rate, entry)
+  }
+
+  return {
+    invoiceCount: totals.invoice_count,
+    subtotal: fromCents(totals.subtotal_cents),
+    vatAmount: fromCents(totals.vat_amount_cents),
+    total: fromCents(totals.total_cents),
+    vatByRate: [...byRate.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([rate, { baseCents, vatCents }]) => ({ rate, base: fromCents(baseCents), vat: fromCents(vatCents) })),
+    reverseChargeRevenue: fromCents(totals.reverse_charge_cents),
+    unpaidCount: totals.unpaid_count,
+    unpaidTotal: fromCents(totals.unpaid_cents),
+  }
 }
 
 export async function getInvoice(id: string): Promise<InvoiceWithDetails | null> {

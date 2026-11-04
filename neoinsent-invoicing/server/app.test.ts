@@ -453,3 +453,26 @@ describe('routing and errors', () => {
     consoleError.mockRestore()
   })
 })
+
+describe('GET /api/dashboard', () => {
+  it('returns the period summary and lists drafts through the real database', async () => {
+    const server = app()
+    const client = await createAcme(server)
+    const draftId = await createDraft(server, client.id)
+
+    const res = await request(server).get('/api/dashboard?year=2026&quarter=4').set('Host', HOST)
+
+    expect(res.status).toBe(200)
+    expect(res.body.period).toEqual({ year: 2026, quarter: 4, fromDate: '2026-10-01', toDate: '2026-12-31' })
+    expect(res.body.summary).toMatchObject({ invoiceCount: 0, total: 0, vatByRate: [] })
+    expect(res.body.invoices).toEqual([])
+    expect(res.body.drafts).toEqual([expect.objectContaining({ id: draftId, client_name: 'Acme BV' })])
+  })
+
+  it('validates the query and allows only GET', async () => {
+    const server = app()
+    expect((await request(server).get('/api/dashboard?quarter=2').set('Host', HOST)).status).toBe(400)
+    const post = await request(server).post('/api/dashboard').set('Host', HOST).send({})
+    expect(post.status).toBe(405)
+  })
+})

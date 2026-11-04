@@ -197,3 +197,19 @@ tr:not(:last-child) td {
   border-color: #e3f4ea;
   color: var(--success);
 }
+
+/* Small warning flags next to an invoice's status (Overdue, PDF missing). */
+.flag {
+  display: inline-block;
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  color: var(--ink-soft);
+}
+
+.flag-danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}

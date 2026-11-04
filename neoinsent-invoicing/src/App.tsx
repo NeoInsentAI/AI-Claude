@@ -1,18 +1,7 @@
 import { Link, Route, Routes, useParams } from 'react-router-dom'
+import { DashboardPage } from './routes/DashboardPage'
 import { InvoiceDetailPage } from './routes/InvoiceDetailPage'
 import { InvoiceFormPage } from './routes/InvoiceFormPage'
-
-/** Start view until the dashboard (Task 20) replaces it. */
-function StartPage() {
-  return (
-    <div>
-      <h1>NeoInsent Invoicing</h1>
-      <Link className="btn btn-primary" to="/invoices/new">
-        + New invoice
-      </Link>
-    </div>
-  )
-}
 
 /** Keyed by id so moving from one invoice to another starts with fresh page state. */
 function InvoiceDetailRoute() {
@@ -46,7 +35,7 @@ export function App() {
       </header>
       <main>
         <Routes>
-          <Route path="/" element={<StartPage />} />
+          <Route path="/" element={<DashboardPage />} />
           <Route path="/invoices/new" element={<InvoiceFormPage key="new" mode="new" />} />
           <Route path="/invoices/:id/edit" element={<EditInvoiceRoute />} />
           <Route path="/invoices/:id" element={<InvoiceDetailRoute />} />

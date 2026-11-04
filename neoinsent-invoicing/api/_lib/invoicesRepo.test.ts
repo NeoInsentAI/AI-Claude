@@ -197,12 +197,35 @@ describe('listInvoices', () => {
       status: 'draft',
       vat_treatment: 'nl_standard',
       issue_date: '2026-03-31',
+      due_date: '2026-11-16',
       subtotal: 259.97,
       vat_amount: 47.4,
       total: 307.37,
       paid: false,
       pdf_path: null,
     })
+  })
+
+  it('shows a final invoice under the client name as invoiced, a draft under the current name', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    const final = await createDraftInvoice(draftFor(acme))
+    finalizeInSql(final.id, acme)
+    await updateClient(acme.id, { ...acmeInput, name: 'Acme Holding BV' })
+
+    const invoices = await listInvoices()
+
+    expect(invoices.find((i) => i.id === final.id)?.client_name).toBe('Acme BV')
+    expect(invoices.find((i) => i.id === draft.id)?.client_name).toBe('Acme Holding BV')
+  })
+
+  it('filters by status', async () => {
+    const draft = await createDraftInvoice(draftFor(acme))
+    const final = await createDraftInvoice(draftFor(acme))
+    finalizeInSql(final.id, acme)
+
+    expect((await listInvoices({ status: 'draft' })).map((i) => i.id)).toEqual([draft.id])
+    expect((await listInvoices({ status: 'final' })).map((i) => i.id)).toEqual([final.id])
+    expect(await listInvoices({ status: 'final', fromDate: '2026-11-03' })).toHaveLength(0)
   })
 
   it('filters by issue date, inclusive at both ends', async () => {
