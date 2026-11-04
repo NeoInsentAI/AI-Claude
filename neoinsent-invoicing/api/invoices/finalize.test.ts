@@ -142,6 +142,8 @@ describe('POST /api/invoices/:id/finalize', () => {
     })
     expect(counter()).toBeNull()
     expect(getDb().prepare('select status from invoices where id = ?').get(invoiceId)).toEqual({ status: 'draft' })
+    // Refused before the pre-finalize backup: no copy for a request that can't succeed.
+    expect(preFinalizeBackups()).toEqual([])
   })
 
   it('finalizes a Dutch invoice with a 0% line once it has a VAT note', async () => {

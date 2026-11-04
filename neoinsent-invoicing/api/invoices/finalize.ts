@@ -7,6 +7,7 @@ import {
   writeInvoicePdf,
 } from '../_lib/invoicePdfFiles'
 import { isUuid } from '../_lib/uuid'
+import { needsVatNote, VAT_NOTE_REQUIRED } from '../../src/lib/vat'
 
 const DATABASE_ERROR = 'Database error — please try again'
 const NOT_FOUND = 'Invoice not found'
@@ -53,6 +54,11 @@ export default async function handler(req: Request, res: Response) {
   }
   if (current.status === 'final') {
     res.status(409).json({ error: ALREADY_FINAL })
+    return
+  }
+  // Also refused inside finalizeDraftInvoice; checked here too so no backup is taken for it.
+  if (needsVatNote(current.vat_treatment, current.items.map((item) => item.vat_rate)) && !current.vat_note?.trim()) {
+    res.status(422).json({ error: VAT_NOTE_REQUIRED })
     return
   }
 
