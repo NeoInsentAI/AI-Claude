@@ -10,7 +10,8 @@ const REQUIRED_FIELDS = [
 ] as const
 
 const COUNTRY_CODE = /^[A-Z]{2}$/
-const EMAIL = /^[^\s@]+@[^\s@]+$/
+// One address only: commas and semicolons would turn it into a recipient list.
+const EMAIL = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/
 
 function optionalTrimmed(value: unknown): string | null {
   if (typeof value !== 'string') return null

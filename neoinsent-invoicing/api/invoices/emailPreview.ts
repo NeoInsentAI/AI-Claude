@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express'
 import { defaultEmailForInvoice, invoiceRecipient } from '../_lib/invoiceEmail'
+import { NO_RECIPIENT, NOT_FINAL, NOT_FOUND } from '../_lib/invoiceEmailMessages'
 import { getInvoice } from '../_lib/invoicesRepo'
 import { isUuid } from '../_lib/uuid'
-import { NO_RECIPIENT, NOT_FINAL, NOT_FOUND } from './send'
 
 /**
  * GET /api/invoices/:id/email-preview — the address and the default subject/text the invoice

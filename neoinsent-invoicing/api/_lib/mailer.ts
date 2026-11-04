@@ -54,7 +54,8 @@ const CONNECTION_CODES = new Set([
 
 function credentials(): { user: string; pass: string } | null {
   const user = process.env.GMAIL_USER?.trim() ?? ''
-  const pass = process.env.GMAIL_APP_PASSWORD?.trim() ?? ''
+  // Google shows app passwords in groups ("abcd efgh ijkl mnop"); the spaces aren't part of it.
+  const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, '') ?? ''
   return user && pass ? { user, pass } : null
 }
 

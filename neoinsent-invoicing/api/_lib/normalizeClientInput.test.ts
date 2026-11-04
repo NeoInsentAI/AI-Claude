@@ -68,6 +68,16 @@ describe('normalizeClientInput', () => {
     expect(result).toEqual({ ok: false, error: 'Country must be a 2-letter ISO code, e.g. NL' })
   })
 
+  it.each(['a@b.nl,c@d.nl', 'a@b.nl;c@d.nl', 'a,b@c.nl', 'a@b.nl, c@d.nl', 'a@nodot', 'a@b.nl;'])(
+    'rejects %j (one address only, with a dotted domain)',
+    (email) => {
+      expect(normalizeClientInput({ ...completeInput, email })).toEqual({
+        ok: false,
+        error: 'Email address looks invalid',
+      })
+    },
+  )
+
   it('rejects an invalid email', () => {
     const result = normalizeClientInput({ ...completeInput, email: 'not an email' })
     expect(result).toEqual({ ok: false, error: 'Email address looks invalid' })

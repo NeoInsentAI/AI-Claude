@@ -9,10 +9,14 @@ import nodemailer from 'nodemailer'
 import request from 'supertest'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeDb, getDataDir } from '../_lib/db'
-import { getInvoice } from '../_lib/invoicesRepo'
+import { getInvoice, markInvoiceSent } from '../_lib/invoicesRepo'
 import { createApp } from '../../server/app'
 
 vi.mock('nodemailer', () => ({ default: { createTransport: vi.fn() } }))
+vi.mock('../_lib/invoicesRepo', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../_lib/invoicesRepo')>()
+  return { ...actual, markInvoiceSent: vi.fn(actual.markInvoiceSent) }
+})
 
 const PORT = 5174
 const HOST = `localhost:${PORT}`
@@ -27,6 +31,7 @@ const saved = {
   pass: process.env.GMAIL_APP_PASSWORD,
 }
 const sendMail = vi.fn()
+const realMarkInvoiceSent = vi.mocked(markInvoiceSent).getMockImplementation()!
 
 function restore(key: string, value: string | undefined) {
   if (value === undefined) delete process.env[key]
@@ -46,6 +51,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.mocked(markInvoiceSent).mockReset().mockImplementation(realMarkInvoiceSent)
   vi.useRealTimers()
   vi.restoreAllMocks()
   closeDb()
@@ -326,5 +332,29 @@ describe('POST /api/invoices/:id/send', () => {
     const { id } = await createFinal(server)
     const res = await send(server, id, { subject: 's'.repeat(200), text: 't'.repeat(5000) })
     expect(res.status).toBe(200)
+  })
+
+  it('says the email went out (and not to resend) when recording sent_at throws', async () => {
+    const server = app()
+    const { id } = await createFinal(server)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(markInvoiceSent).mockRejectedValueOnce(new Error('database is locked'))
+    const res = await send(server, id)
+    expect(sendMail).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(500)
+    expect(res.body.error).toBe(
+      "The email was sent to billing@acme.nl, but the app could not record it. Don't send it again.",
+    )
+    expect(errorLog).toHaveBeenCalled()
+  })
+
+  it('says the email went out (and not to resend) when the invoice is no longer final', async () => {
+    const server = app()
+    const { id } = await createFinal(server)
+    vi.mocked(markInvoiceSent).mockResolvedValueOnce('not_final')
+    const res = await send(server, id)
+    expect(sendMail).toHaveBeenCalledTimes(1)
+    expect(res.status).toBe(500)
+    expect(res.body.error).toMatch(/was sent to billing@acme\.nl.*Don't send it again\./)
   })
 })

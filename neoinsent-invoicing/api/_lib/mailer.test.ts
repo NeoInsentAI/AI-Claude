@@ -58,6 +58,14 @@ describe('isEmailConfigured', () => {
 })
 
 describe('sendInvoiceEmail', () => {
+  it('removes the spaces Google shows in the app password before logging in', async () => {
+    process.env.GMAIL_APP_PASSWORD = ' abcd efgh\tijkl mnop '
+    await sendInvoiceEmail(INPUT)
+    expect(nodemailer.createTransport).toHaveBeenCalledWith(
+      expect.objectContaining({ auth: { user: 'finance@neoinsentai.com', pass: 'abcdefghijklmnop' } }),
+    )
+  })
+
   it('sends through Gmail SMTP with timeouts, the PDF attached and a reply-to', async () => {
     await sendInvoiceEmail(INPUT)
     expect(nodemailer.createTransport).toHaveBeenCalledWith({

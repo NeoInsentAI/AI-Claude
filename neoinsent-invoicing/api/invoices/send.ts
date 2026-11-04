@@ -1,15 +1,12 @@
 import path from 'node:path'
 import type { Request, Response } from 'express'
 import { defaultEmailForInvoice, invoiceRecipient } from '../_lib/invoiceEmail'
+import { NO_RECIPIENT, NOT_FINAL, NOT_FOUND } from '../_lib/invoiceEmailMessages'
 import { ensureInvoicePdf } from '../_lib/invoicePdfFiles'
 import { getInvoice, markInvoiceSent } from '../_lib/invoicesRepo'
 import { isEmailConfigured, MailerError, NOT_CONFIGURED_MESSAGE, sendInvoiceEmail } from '../_lib/mailer'
 import { isUuid } from '../_lib/uuid'
 
-export const NOT_FOUND = 'Invoice not found'
-export const NOT_FINAL = 'Only finalized invoices can be emailed'
-export const NO_RECIPIENT =
-  "This invoice has no client email address to send it to. Download the PDF and send it yourself."
 const DATABASE_ERROR = 'Database error — please try again'
 const PDF_FAILED = 'The PDF could not be created — try again'
 
