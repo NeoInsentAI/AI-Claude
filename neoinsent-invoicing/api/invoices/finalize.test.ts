@@ -345,7 +345,7 @@ describe('POST /api/invoices/:id/finalize', () => {
       error:
         "Invoice NEO-2026-0001 already exists in your invoices folder, but the database doesn't know it — " +
         'it looks restored from an older backup. Restore the database and the invoices folder from the ' +
-        'same moment. Nothing was finalized.',
+        'same moment (see "Restoring" in the README). Nothing was finalized.',
     })
     expect(counter()).toBeNull()
     expect(getDb().prepare('select status, invoice_number from invoices where id = ?').get(second.invoiceId)).toEqual({

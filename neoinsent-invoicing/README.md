@@ -81,8 +81,19 @@ Quit the app first. Restore `neoinsent.db` together with the `invoices/` folder 
 moment — never the database alone: an older database would not know the invoices issued since,
 and would hand out their numbers again. The app refuses to finalize an invoice whose number
 already has a PDF in `invoices/`, and says so — that check relies on the PDFs being present in
-the `invoices/` folder, so never delete or move them out of it. A file from `backups/` is restored
-by copying it over `neoinsent.db` (with the app stopped).
+the `invoices/` folder, so never delete or move them out of it.
+
+A file from `backups/` is restored by copying it over `neoinsent.db` (with the app stopped). These
+copies contain **only the database, not the PDFs**, so be careful which one you pick:
+
+- **Only restore a copy taken after the last invoice you finalized.** The date and time are in
+  the file name. Usually that is the newest daily `neoinsent-YYYY-MM-DD.db`, if it is from after
+  your last finalized invoice. Note that a `pre-finalize-<timestamp>.db` copy is taken just
+  *before* an invoice is finalized, so it does **not** contain that invoice.
+- **If you finalized invoices after the copy was taken, do not restore it.** Those issued invoices
+  would disappear from the records (their PDFs stay in `invoices/`), and the app would refuse to
+  finalize any new invoice that year, because the next numbers already have PDFs. Restore from
+  Time Machine instead (database and `invoices/` folder from the same moment), or ask for help.
 
 ## Scripts
 

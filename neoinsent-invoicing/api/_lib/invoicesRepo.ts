@@ -901,7 +901,7 @@ export async function finalizeDraftInvoice(id: string, now: Date = new Date()): 
           message:
             `Invoice ${formatInvoiceNumber(year, onDisk)} already exists in your invoices folder, but the ` +
             "database doesn't know it — it looks restored from an older backup. Restore the database " +
-            'and the invoices folder from the same moment. Nothing was finalized.',
+            'and the invoices folder from the same moment (see "Restoring" in the README). Nothing was finalized.',
         })
       }
       const invoiceNumber = formatInvoiceNumber(year, seq)
