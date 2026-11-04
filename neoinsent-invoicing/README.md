@@ -89,10 +89,15 @@ the `invoices/` folder, so never delete or move them out of it.
 A file from `backups/` is restored by copying it over `neoinsent.db` (with the app stopped). These
 copies contain **only the database, not the PDFs**, so be careful which one you pick:
 
-- **Only restore a copy taken after the last invoice you finalized.** The date and time are in
-  the file name. Usually that is the newest daily `neoinsent-YYYY-MM-DD.db`, if it is from after
-  your last finalized invoice. Note that a `pre-finalize-<timestamp>.db` copy is taken just
-  *before* an invoice is finalized, so it does **not** contain that invoice.
+- **Only restore a copy taken after the last invoice you finalized.** To check, select the file in
+  Finder, choose **File → Get Info** and compare its **Modified** time with when you finalized
+  your last invoice. Don't go by the file name alone: a daily copy `neoinsent-YYYY-MM-DD.db`
+  carries only a date and is written once, usually when the app starts that day, so a daily copy
+  from the same day as your last finalized invoice may well *not* contain it. A
+  `pre-finalize-<timestamp>.db` copy is taken just *before* an invoice is finalized, so it does
+  **not** contain that invoice either.
+- **When in doubt, don't restore from `backups/`.** Restore from Time Machine instead (the
+  database and the `invoices/` folder together, from the same moment), or ask for help.
 - **If you finalized invoices after the copy was taken, do not restore it.** Those issued invoices
   would disappear from the records (their PDFs stay in `invoices/`), and the app would refuse to
   finalize any new invoice that year, because the next numbers already have PDFs. Restore from
