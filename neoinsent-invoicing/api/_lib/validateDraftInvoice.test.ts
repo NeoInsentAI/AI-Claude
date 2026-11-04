@@ -253,9 +253,22 @@ describe('validateDraftInvoice', () => {
   })
 
   it('caps the VAT note at 200 characters after trimming', () => {
-    const ok = validateDraftInvoice(validBody({ vat_note: ` ${'a'.repeat(200)} ` }))
+    const zero = [item({ vat_rate: 0 })]
+    const ok = validateDraftInvoice(validBody({ items: zero, vat_note: ` ${'a'.repeat(200)} ` }))
     expect(ok.ok && ok.value.vat_note).toBe('a'.repeat(200))
-    expectError(validBody({ vat_note: 'a'.repeat(201) }), /^VAT note can be at most 200 characters$/)
+    expectError(validBody({ items: zero, vat_note: 'a'.repeat(201) }), /^VAT note can be at most 200 characters$/)
+  })
+
+  it('collapses newlines, tabs and runs of spaces in the VAT note to single spaces', () => {
+    const result = validateDraftInvoice(
+      validBody({ items: [item({ vat_rate: 0 })], vat_note: ' Vrijgesteld\r\n\n van btw\t(art. 11   Wet OB) ' }),
+    )
+    expect(result.ok && result.value.vat_note).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
+  })
+
+  it('drops the VAT note on a Dutch invoice without 0% lines (it would explain nothing)', () => {
+    const result = validateDraftInvoice(validBody({ items: [item({ vat_rate: 21 })], vat_note: 'Vrijgesteld' }))
+    expect(result.ok && result.value.vat_note).toBeNull()
   })
 
   it('ignores the VAT note on a reverse-charge invoice', () => {

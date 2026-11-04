@@ -1,4 +1,4 @@
-import { isInvoiceVatTreatment, MAX_VAT_NOTE_LENGTH, type VatTreatment } from '../../src/lib/vat'
+import { isInvoiceVatTreatment, MAX_VAT_NOTE_LENGTH, needsVatNote, type VatTreatment } from '../../src/lib/vat'
 import type { DraftInvoiceInput, InvoiceItemInput } from './invoicesRepo'
 import { isUuid } from './uuid'
 
@@ -141,16 +141,6 @@ export function validateDraftInvoice(body: unknown): ValidateDraftInvoiceResult 
     }
   }
 
-  // Only Dutch invoices carry a VAT note (why a line has 0% VAT); reverse charge prints its own.
-  // Not required here: a draft may be saved without it, finalizing checks it.
-  const vatNote =
-    vatTreatment === 'nl_standard' && typeof input.vat_note === 'string' && input.vat_note.trim() !== ''
-      ? input.vat_note.trim()
-      : null
-  if (vatNote !== null && vatNote.length > MAX_VAT_NOTE_LENGTH) {
-    return { ok: false, error: `VAT note can be at most ${MAX_VAT_NOTE_LENGTH} characters` }
-  }
-
   const rawItems = input.items
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { ok: false, error: 'At least one line item is required' }
@@ -168,6 +158,18 @@ export function validateDraftInvoice(body: unknown): ValidateDraftInvoiceResult 
 
   if (vatTreatment === 'eu_reverse_charge' && items.some((item) => item.vat_rate !== 0)) {
     return { ok: false, error: 'Reverse-charge invoices must use 0% VAT on every line' }
+  }
+
+  // The VAT note (why a line has 0% VAT) is kept only where it applies: a Dutch invoice with a
+  // 0% line, as in the form; reverse charge prints its own note. One line of text: newlines, tabs
+  // and other control characters collapse to single spaces (the PDF prints it as a short block).
+  // Not required here: a draft may be saved without it, finalizing checks it.
+  const vatNote =
+    needsVatNote(vatTreatment, items.map((item) => item.vat_rate)) && typeof input.vat_note === 'string'
+      ? input.vat_note.replace(/[\s\p{Cc}]+/gu, ' ').trim() || null
+      : null
+  if (vatNote !== null && vatNote.length > MAX_VAT_NOTE_LENGTH) {
+    return { ok: false, error: `VAT note can be at most ${MAX_VAT_NOTE_LENGTH} characters` }
   }
 
   return {
