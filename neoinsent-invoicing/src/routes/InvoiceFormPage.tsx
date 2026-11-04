@@ -13,7 +13,7 @@ import {
   trimmedOrNull,
   type ApiInvoiceItem,
 } from '../lib/invoiceForm'
-import { determineVatTreatment, type VatTreatment } from '../lib/vat'
+import { determineVatTreatment, MAX_VAT_NOTE_LENGTH, needsVatNote, type VatTreatment } from '../lib/vat'
 
 type Language = 'nl' | 'en'
 
@@ -27,6 +27,7 @@ interface LoadedInvoice {
   due_date: string
   notes: string | null
   service_period: string | null
+  vat_note: string | null
   /** The live client row. */
   client: ClientSummary | null
   items: ApiInvoiceItem[]
@@ -67,6 +68,7 @@ export function InvoiceFormPage({ mode }: Props) {
   const [language, setLanguage] = useState<Language | null>(null)
   const [notes, setNotes] = useState('')
   const [servicePeriod, setServicePeriod] = useState('')
+  const [vatNote, setVatNote] = useState('')
   const [rows, setRows] = useState<LineItemRow[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -104,6 +106,7 @@ export function InvoiceFormPage({ mode }: Props) {
         setLanguage(invoice.language)
         setNotes(invoice.notes ?? '')
         setServicePeriod(invoice.service_period ?? '')
+        setVatNote(invoice.vat_note ?? '')
         setLoading(false)
       })
       .catch((err: unknown) => {
@@ -120,6 +123,8 @@ export function InvoiceFormPage({ mode }: Props) {
   const effectiveLanguage: Language = language ?? (client?.country.trim().toUpperCase() === 'NL' ? 'nl' : 'en')
   const check = canSave({ client, treatment, rows, issueDate, dueDate })
   const vatLocked = treatment === 'eu_reverse_charge'
+  // Dutch invoice with a 0% line: the invoice must say why (required to finalize, not to save).
+  const showVatNote = needsVatNote(treatment, rows.map((r) => r.vatRate))
   const saveBlocked = !check.ok || saving
 
   function handleClientChange(next: ClientSummary) {
@@ -145,6 +150,7 @@ export function InvoiceFormPage({ mode }: Props) {
       due_date: dueDate,
       notes: trimmedOrNull(notes),
       service_period: trimmedOrNull(servicePeriod),
+      vat_note: showVatNote ? trimmedOrNull(vatNote) : null,
       items: itemsForApi(rows),
     })
     try {
@@ -271,6 +277,23 @@ export function InvoiceFormPage({ mode }: Props) {
         defaultVatRate={vatLocked ? 0 : 21}
         vatLocked={vatLocked}
       />
+
+      {showVatNote && (
+        <div className="card">
+          <label htmlFor="vat-note">VAT note (reason for 0% VAT)</label>
+          <input
+            id="vat-note"
+            type="text"
+            maxLength={MAX_VAT_NOTE_LENGTH}
+            aria-describedby="vat-note-hint"
+            value={vatNote}
+            onChange={(e) => setVatNote(e.target.value)}
+          />
+          <p id="vat-note-hint" style={{ color: 'var(--ink-soft)', fontSize: '0.85rem', marginTop: 4 }}>
+            Printed on the invoice. Required for 0% VAT lines on Dutch invoices.
+          </p>
+        </div>
+      )}
 
       {saveError && (
         <p role="alert" className="error">

@@ -59,6 +59,7 @@ function draftInvoice(overrides: Record<string, unknown> = {}) {
     due_date: '2026-10-15',
     notes: 'Thanks!',
     service_period: 'September 2026',
+    vat_note: null,
     client: NL_CLIENT,
     client_snapshot: null,
     items: [
@@ -182,6 +183,7 @@ describe('InvoiceFormPage — new', () => {
       due_date: addDaysIso(todayLocalIso(), 14),
       notes: 'Thank you',
       service_period: 'October 2026',
+      vat_note: null,
       items: [{ description: 'Consulting', quantity: 1, unit_price: 100.5, vat_rate: 21 }],
     })
   })
@@ -211,6 +213,56 @@ describe('InvoiceFormPage — new', () => {
     expect(input).toHaveAccessibleDescription(
       "Optional — e.g. 'October 2026' or '12–16 Oct 2026'. Leave empty if it's the invoice date.",
     )
+  })
+
+  it('asks for a VAT note only when a Dutch invoice has a 0% line, and saves it trimmed', async () => {
+    const fetchMock = stubFetch((url, init) =>
+      url === '/api/invoices' && init?.method === 'POST' ? jsonResponse({ invoice: { id: 'inv-3' } }, 201) : undefined,
+    )
+    renderAt('/invoices/new')
+    await pickClient('Acme BV')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
+    await userEvent.type(screen.getByLabelText('Description 1'), 'Training')
+    expect(screen.queryByLabelText('VAT note (reason for 0% VAT)')).not.toBeInTheDocument()
+
+    await userEvent.selectOptions(screen.getByLabelText('VAT rate 1'), '0')
+    const input = screen.getByLabelText('VAT note (reason for 0% VAT)')
+    expect(input).toHaveAttribute('maxLength', '200')
+    expect(input).toHaveAccessibleDescription('Printed on the invoice. Required for 0% VAT lines on Dutch invoices.')
+    // A draft may be saved without it; finalizing needs it.
+    expectSaveAllowed()
+
+    await userEvent.type(input, '  Vrijgesteld van btw (art. 11 Wet OB) ')
+    await userEvent.click(saveButton())
+    await screen.findByText('Invoice page inv-3')
+    expect(bodyOf(fetchMock, 'POST').vat_note).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
+  })
+
+  it('drops the VAT note when no line is at 0% any more', async () => {
+    const fetchMock = stubFetch((url, init) =>
+      url === '/api/invoices' && init?.method === 'POST' ? jsonResponse({ invoice: { id: 'inv-4' } }, 201) : undefined,
+    )
+    renderAt('/invoices/new')
+    await pickClient('Acme BV')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
+    await userEvent.type(screen.getByLabelText('Description 1'), 'Training')
+    await userEvent.selectOptions(screen.getByLabelText('VAT rate 1'), '0')
+    await userEvent.type(screen.getByLabelText('VAT note (reason for 0% VAT)'), 'Vrijgesteld')
+    await userEvent.selectOptions(screen.getByLabelText('VAT rate 1'), '21')
+    expect(screen.queryByLabelText('VAT note (reason for 0% VAT)')).not.toBeInTheDocument()
+
+    await userEvent.click(saveButton())
+    await screen.findByText('Invoice page inv-4')
+    expect(bodyOf(fetchMock, 'POST').vat_note).toBeNull()
+  })
+
+  it('never asks for a VAT note on a reverse-charge invoice', async () => {
+    stubFetch(() => undefined)
+    renderAt('/invoices/new')
+    await pickClient('Globex GmbH')
+    await userEvent.click(screen.getByRole('button', { name: '+ Add line' }))
+    expect(screen.getByLabelText('VAT rate 1')).toHaveValue('0')
+    expect(screen.queryByLabelText('VAT note (reason for 0% VAT)')).not.toBeInTheDocument()
   })
 
   it('forces 0% and locks the VAT select for an EU client with a VAT number', async () => {
@@ -370,11 +422,27 @@ describe('InvoiceFormPage — edit', () => {
       due_date: '2026-10-15',
       notes: 'Thanks!',
       service_period: 'September 2026',
+      vat_note: null,
       items: [
         { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
         { description: 'Manuals', quantity: 1, unit_price: 20, vat_rate: 9 },
       ],
     })
+  })
+
+  it("loads a draft's VAT note", async () => {
+    stubFetch((url) =>
+      url === invoiceUrl
+        ? jsonResponse({
+            invoice: draftInvoice({
+              vat_note: 'Vrijgesteld van btw',
+              items: [{ id: 'i1', description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0, line_total: 50 }],
+            }),
+          })
+        : undefined,
+    )
+    renderAt(editPath)
+    expect(await screen.findByLabelText('VAT note (reason for 0% VAT)')).toHaveValue('Vrijgesteld van btw')
   })
 
   it('redirects to the invoice when it is already final', async () => {

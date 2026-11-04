@@ -4,6 +4,7 @@ import { ApiError, apiFetch } from '../lib/apiClient'
 import { clientForInvoice, type ClientDetails } from '../lib/clientForInvoice'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { computeLine } from '../lib/invoiceMath'
+import { needsVatNote, VAT_NOTE_REQUIRED, type VatTreatment } from '../lib/vat'
 
 /** The fields of `GET /api/invoices/:id` this page uses. */
 interface InvoiceDetail {
@@ -11,10 +12,12 @@ interface InvoiceDetail {
   invoice_number: string | null
   status: 'draft' | 'final'
   language: 'nl' | 'en'
-  vat_treatment: string
+  vat_treatment: VatTreatment
   issue_date: string
   due_date: string
   service_period: string | null
+  /** Why a line has 0% VAT on a Dutch invoice; required before finalizing one. */
+  vat_note: string | null
   notes: string | null
   subtotal: number
   vat_amount: number
@@ -327,6 +330,13 @@ export function InvoiceDetailPage() {
   // Never fall back to the live client for a final invoice: it would show details that weren't invoiced.
   const snapshotMissing = isFinal && !invoice.client_snapshot
   const client = snapshotMissing ? null : clientForInvoice(invoice)
+  // The server refuses this too; saying so up front saves a pointless backup and round trip.
+  const finalizeBlockedReason =
+    !isFinal &&
+    needsVatNote(invoice.vat_treatment, invoice.items.map((item) => item.vat_rate)) &&
+    !invoice.vat_note?.trim()
+      ? VAT_NOTE_REQUIRED
+      : null
 
   return (
     <div>
@@ -348,14 +358,23 @@ export function InvoiceDetailPage() {
             <button
               ref={finalizeButton}
               type="button"
-              className="btn btn-primary"
+              // aria-disabled rather than disabled: the button keeps focus, so the reason is read out.
+              className={`btn btn-primary${finalizeBlockedReason ? ' is-disabled' : ''}`}
+              aria-disabled={finalizeBlockedReason !== null}
+              aria-describedby={finalizeBlockedReason ? 'finalize-blocked-reason' : undefined}
               onClick={() => {
+                if (finalizeBlockedReason) return
                 setFinalizeError(null)
                 setConfirmingFinalize(true)
               }}
             >
               Finalize
             </button>
+            {finalizeBlockedReason && (
+              <span id="finalize-blocked-reason" style={{ color: 'var(--ink-soft)' }}>
+                {finalizeBlockedReason}
+              </span>
+            )}
           </>
         )}
         {isFinal && (
@@ -559,6 +578,13 @@ export function InvoiceDetailPage() {
           </dd>
         </dl>
       </section>
+
+      {invoice.vat_note && (
+        <section className="card" aria-labelledby="invoice-vat-note-heading" style={{ marginTop: 16 }}>
+          <h2 id="invoice-vat-note-heading">VAT note</h2>
+          <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{invoice.vat_note}</p>
+        </section>
+      )}
 
       {invoice.notes && (
         <section className="card" aria-labelledby="invoice-notes-heading" style={{ marginTop: 16 }}>

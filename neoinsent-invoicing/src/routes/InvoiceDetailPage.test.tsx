@@ -40,6 +40,7 @@ function draftInvoice(overrides: Record<string, unknown> = {}) {
     due_date: '2026-11-16',
     notes: 'Thanks for your business',
     service_period: 'October 2026',
+    vat_note: null,
     subtotal: 220,
     vat_amount: 43.8,
     total: 263.8,
@@ -273,6 +274,49 @@ describe('InvoiceDetailPage — draft', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
     expect(screen.getByRole('heading', { level: 1, name: 'Draft' })).toBeInTheDocument()
     expect(screen.getByTestId('status-pill')).toHaveTextContent('Draft')
+  })
+
+  it('blocks Finalize with the reason when a Dutch draft has a 0% line but no VAT note', async () => {
+    const fetchMock = stubFetch((url) =>
+      url === GET_URL
+        ? jsonResponse({
+            invoice: draftInvoice({
+              items: [{ id: 'i1', description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0, line_total: 50 }],
+            }),
+          })
+        : undefined,
+    )
+    const user = userEvent.setup()
+    renderAt()
+    const button = await screen.findByRole('button', { name: 'Finalize' })
+    expect(button).toHaveAttribute('aria-disabled', 'true')
+    expect(button).toHaveAccessibleDescription(
+      'Add a VAT note explaining why a line has 0% VAT (e.g. the legal basis) — edit the draft to add it.',
+    )
+    await user.click(button)
+    expect(screen.queryByRole('group', { name: 'Confirm finalize' })).not.toBeInTheDocument()
+    expect(callsTo(fetchMock, 'POST', `${GET_URL}/finalize`)).toHaveLength(0)
+  })
+
+  it('shows the VAT note and allows Finalize when a Dutch draft with a 0% line has one', async () => {
+    stubFetch((url) =>
+      url === GET_URL
+        ? jsonResponse({
+            invoice: draftInvoice({
+              vat_note: 'Vrijgesteld van btw (art. 11 Wet OB)',
+              items: [{ id: 'i1', description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0, line_total: 50 }],
+            }),
+          })
+        : undefined,
+    )
+    const user = userEvent.setup()
+    renderAt()
+    const button = await screen.findByRole('button', { name: 'Finalize' })
+    expect(button).toHaveAttribute('aria-disabled', 'false')
+    const note = screen.getByRole('region', { name: 'VAT note' })
+    expect(note).toHaveTextContent('Vrijgesteld van btw (art. 11 Wet OB)')
+    await user.click(button)
+    expect(screen.getByRole('group', { name: 'Confirm finalize' })).toBeInTheDocument()
   })
 
   it('focuses the confirm button when the confirmation opens, and returns focus to Finalize on Cancel', async () => {
