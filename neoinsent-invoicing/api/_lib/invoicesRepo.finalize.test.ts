@@ -216,7 +216,7 @@ describe('finalizeDraftInvoice', () => {
       message:
         "Invoice NEO-2026-0003 already exists in your invoices folder, but the database doesn't know it — " +
         'it looks restored from an older backup. Restore the database and the invoices folder from the ' +
-        'same moment (see "Restoring" in the README). Nothing was finalized.',
+        'same moment (see "Restoring" in README.md in the app folder). Nothing was finalized.',
     })
     expect(storedRow(draft.id)).toEqual(before)
     expect(counter(2026)).toBeNull()
