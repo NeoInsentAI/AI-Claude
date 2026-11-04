@@ -6,7 +6,7 @@
  */
 export const COMPANY = {
   name: 'NeoInsent AI',
-  addressLine: 'Wagenlaan',
+  addressLine: 'Wagenlaan 2',
   postalCode: '6225KE',
   city: 'Maastricht',
   country: 'NL',

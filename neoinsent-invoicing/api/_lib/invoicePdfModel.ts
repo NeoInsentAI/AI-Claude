@@ -190,6 +190,21 @@ export function buildInvoicePdfModel(input: InvoicePdfInput): InvoicePdfModel {
   const { language } = input
   const text = TEXT[language]
 
+  if (input.vatTreatment === 'eu_reverse_charge') {
+    if (!input.client.vat_number?.trim()) {
+      throw new Error(
+        `Invoice ${input.invoiceNumber}: a reverse-charge invoice must show the client's VAT number, but the client has none`,
+      )
+    }
+    const taxed = input.items.find((item) => item.vat_rate !== 0)
+    if (taxed) {
+      throw new Error(
+        `Invoice ${input.invoiceNumber}: a reverse-charge invoice must have 0% VAT on every line, ` +
+          `but "${taxed.description}" is at ${taxed.vat_rate}%`,
+      )
+    }
+  }
+
   const groups = new Map<number, { baseCents: number; vatCents: number }>()
   const lines: InvoicePdfLine[] = input.items.map((item) => {
     const computed = computeLine({
@@ -249,7 +264,7 @@ export function buildInvoicePdfModel(input: InvoicePdfInput): InvoicePdfModel {
     input.vatTreatment === 'eu_reverse_charge'
       ? {
           note: text.reverseChargeNote,
-          clientVatNumber: `${text.reverseChargeClientVat}: ${client.vat_number ?? '—'}`,
+          clientVatNumber: `${text.reverseChargeClientVat}: ${client.vat_number}`,
         }
       : null
 

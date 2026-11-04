@@ -172,10 +172,14 @@ describe('buildInvoicePdfModel', () => {
       'NL62 BUNQ 2202 5896 86',
       COMPANY.bic,
       COMPANY.email,
-      'Wagenlaan',
     ]) {
       expect(footer).toContain(value)
     }
+  })
+
+  it('prints the full company address, house number included', () => {
+    const footer = buildInvoicePdfModel(NL_INPUT).footer.join(' ')
+    expect(footer).toContain('Wagenlaan 2, 6225KE Maastricht')
   })
 
   it('never contains an OB-nummer', () => {
@@ -187,6 +191,24 @@ describe('buildInvoicePdfModel', () => {
 
   it('refuses to build a model whose stored totals do not match its lines', () => {
     expect(() => buildInvoicePdfModel({ ...NL_INPUT, vatAmount: 233 })).toThrow(/totals/i)
+  })
+
+  it('refuses a reverse-charge invoice whose client has no VAT number', () => {
+    expect(() =>
+      buildInvoicePdfModel({ ...EN_RC_INPUT, client: { ...EN_RC_INPUT.client, vat_number: null } }),
+    ).toThrow(/reverse-charge.*VAT number/i)
+  })
+
+  it('refuses a reverse-charge invoice with a line at a VAT rate other than 0%', () => {
+    expect(() =>
+      buildInvoicePdfModel({
+        ...EN_RC_INPUT,
+        // Totals consistent with the 21% line, so only the reverse-charge guard can trip.
+        items: [{ ...EN_RC_INPUT.items[0], vat_rate: 21, line_total: 1210 }, EN_RC_INPUT.items[1]],
+        vatAmount: 210,
+        total: 1460,
+      }),
+    ).toThrow(/reverse-charge.*0%/i)
   })
 
   it('rejects malformed dates', () => {

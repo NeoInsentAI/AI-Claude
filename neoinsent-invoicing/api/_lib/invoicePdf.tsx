@@ -1,7 +1,3 @@
-/** @jsxRuntime automatic */
-/** @jsxImportSource react */
-// The pragmas above make this file use the automatic JSX runtime under tsx too: the server is
-// run with `tsx server/index.ts`, and the root tsconfig.json has no `jsx` option of its own.
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { Document, Font, Image, Page, StyleSheet, Text, View, renderToBuffer } from '@react-pdf/renderer'
@@ -18,6 +14,7 @@ export interface RenderInvoicePdfOptions {
 
 // react-pdf hyphenates with English rules by default, which splits Dutch words oddly; wrap at
 // whole words instead.
+// Note: this registration is process-wide — it applies to every react-pdf render in this process.
 Font.registerHyphenationCallback((word) => [word])
 
 const INK = '#111a2e'
