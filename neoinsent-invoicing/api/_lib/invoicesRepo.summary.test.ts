@@ -7,7 +7,10 @@ import { closeDb } from './db'
 import { createClient, type Client, type NewClient } from './clientsRepo'
 import {
   createDraftInvoice,
+  dashboardData,
   finalizeDraftInvoice,
+  getInvoice,
+  replaceDraftInvoice,
   setInvoicePaid,
   summaryForPeriod,
   type DraftInvoiceInput,
@@ -134,9 +137,9 @@ describe('summaryForPeriod', () => {
       vatAmount: 139.5,
       total: 2409.48,
       vatByRate: [
-        { rate: 21, base: 210.01, vat: 44.1 },
-        { rate: 9, base: 1059.97, vat: 95.4 },
-        { rate: 0, base: 1000, vat: 0 },
+        { treatment: 'nl_standard', rate: 21, base: 210.01, vat: 44.1 },
+        { treatment: 'nl_standard', rate: 9, base: 1059.97, vat: 95.4 },
+        { treatment: 'eu_reverse_charge', rate: 0, base: 1000, vat: 0 },
       ],
       reverseChargeRevenue: 1000,
       unpaidCount: 2,
@@ -167,4 +170,155 @@ describe('summaryForPeriod', () => {
       unpaidTotal: 0,
     })
   })
+
+  it('keeps 0% reverse-charge lines apart from 0% domestic lines', async () => {
+    await issue(
+      draftFor(acme, [
+        { description: 'Consulting', quantity: 1, unit_price: 100, vat_rate: 21 },
+        { description: 'Exempt', quantity: 1, unit_price: 40, vat_rate: 0 },
+      ]),
+      new Date(2026, 1, 10, 9, 0),
+    )
+    await issue(
+      draftFor(beispiel, [{ description: 'AI strategy', quantity: 2, unit_price: 250, vat_rate: 0 }], {
+        language: 'en',
+        vat_treatment: 'eu_reverse_charge',
+      }),
+      new Date(2026, 1, 11, 9, 0),
+    )
+
+    const summary = await summaryForPeriod(Q1_2026)
+
+    expect(summary.vatByRate).toEqual([
+      { treatment: 'nl_standard', rate: 21, base: 100, vat: 21 },
+      { treatment: 'nl_standard', rate: 0, base: 40, vat: 0 },
+      { treatment: 'eu_reverse_charge', rate: 0, base: 500, vat: 0 },
+    ])
+    expect(summary.reverseChargeRevenue).toBe(500)
+  })
+
+  it('per-rate sums equal the stored totals of an invoice saved through the draft-replace path', async () => {
+    const draft = await createDraftInvoice(
+      draftFor(acme, [
+        { description: 'A', quantity: 0.33, unit_price: 15.15, vat_rate: 21 },
+        { description: 'B', quantity: 7, unit_price: 0.05, vat_rate: 21 },
+        { description: 'C', quantity: 3, unit_price: 19.99, vat_rate: 9 },
+      ]),
+    )
+    const replaced = await replaceDraftInvoice(
+      draft.id,
+      draftFor(acme, [
+        { description: 'A', quantity: 0.33, unit_price: 15.15, vat_rate: 21 },
+        { description: 'B', quantity: 7, unit_price: 0.05, vat_rate: 21 },
+        { description: 'C', quantity: 3, unit_price: 19.99, vat_rate: 9 },
+        { description: 'D', quantity: 1.5, unit_price: 6.67, vat_rate: 21 },
+        { description: 'E', quantity: 0.07, unit_price: 3.33, vat_rate: 9 },
+      ]),
+    )
+    expect(typeof replaced).toBe('object')
+    const result = await finalizeDraftInvoice(draft.id, new Date(2026, 1, 10, 9, 0))
+    expect(result.status).toBe('ok')
+    const stored = await getInvoice(draft.id)
+
+    const summary = await summaryForPeriod(Q1_2026)
+
+    const vatCents = summary.vatByRate.reduce((sum, r) => sum + Math.round(r.vat * 100), 0)
+    const baseCents = summary.vatByRate.reduce((sum, r) => sum + Math.round(r.base * 100), 0)
+    expect(vatCents).toBe(Math.round(stored!.vat_amount * 100))
+    expect(baseCents).toBe(Math.round(stored!.subtotal * 100))
+    expect(summary.vatAmount).toBe(stored!.vat_amount)
+    expect(summary.subtotal).toBe(stored!.subtotal)
+    expect(summary.vatByRate.map((r) => r.rate)).toEqual([21, 9])
+  })
 })
+
+describe('dashboardData', () => {
+  let acme: Client
+  let beispiel: Client
+
+  beforeEach(async () => {
+    acme = await createClient(acmeInput)
+    beispiel = await createClient(beispielInput)
+  })
+
+  const YEAR_2026 = { fromDate: '2026-01-01', toDate: '2026-12-31', today: '2026-11-04' }
+
+  it('lists every unpaid final invoice under outstanding, whatever the period', async () => {
+    // 2024, unpaid: due 2024-05-15 (overdue).
+    const old = await issue(
+      draftFor(acme, [{ description: 'Old', quantity: 1, unit_price: 100, vat_rate: 21 }]),
+      new Date(2024, 4, 1, 9, 0),
+    )
+    // 2025, paid: not outstanding.
+    const paid = await issue(
+      draftFor(acme, [{ description: 'Paid', quantity: 1, unit_price: 50, vat_rate: 21 }]),
+      new Date(2025, 2, 1, 9, 0),
+    )
+    await setInvoicePaid(paid, true)
+    // 2026, unpaid: due 2026-11-15 (not overdue on 2026-11-04).
+    const recent = await issue(
+      draftFor(beispiel, [{ description: 'Recent', quantity: 2, unit_price: 250, vat_rate: 0 }], {
+        language: 'en',
+        vat_treatment: 'eu_reverse_charge',
+      }),
+      new Date(2026, 10, 1, 9, 0),
+    )
+    // 2026, unpaid: due 2026-03-15 (overdue).
+    const march = await issue(
+      draftFor(acme, [{ description: 'March', quantity: 1, unit_price: 10, vat_rate: 9 }]),
+      new Date(2026, 2, 1, 9, 0),
+    )
+    // A draft is never outstanding.
+    await createDraftInvoice(draftFor(acme, [{ description: 'Draft', quantity: 1, unit_price: 1, vat_rate: 21 }]))
+
+    const data = await dashboardData(YEAR_2026)
+
+    expect(data.outstanding.invoices.map((i) => i.id)).toEqual([old, march, recent])
+    expect(data.outstanding.invoices.map((i) => i.due_date)).toEqual(['2024-05-15', '2026-03-15', '2026-11-15'])
+    expect(data.outstanding.count).toBe(3)
+    expect(data.outstanding.total).toBe(631.9)
+    expect(data.outstanding.overdueCount).toBe(2)
+    // The period's own figures still only cover 2026.
+    expect(data.summary.unpaidCount).toBe(2)
+    expect(data.invoices.map((i) => i.id).sort()).toEqual([recent, march].sort())
+    expect(data.drafts).toHaveLength(1)
+    expect(data.firstYear).toBe(2024)
+  })
+
+  it('counts an invoice due today as not overdue', async () => {
+    await issue(
+      draftFor(acme, [{ description: 'Due today', quantity: 1, unit_price: 100, vat_rate: 21 }]),
+      new Date(2026, 9, 21, 9, 0),
+    )
+    const data = await dashboardData(YEAR_2026)
+    expect(data.outstanding.invoices[0].due_date).toBe('2026-11-04')
+    expect(data.outstanding.overdueCount).toBe(0)
+  })
+
+  it('reports the earliest year with a final invoice, ignoring drafts', async () => {
+    await createDraftInvoice(
+      draftFor(acme, [{ description: 'Draft', quantity: 1, unit_price: 1, vat_rate: 21 }], {
+        issue_date: '2015-01-01',
+        due_date: '2015-01-15',
+      }),
+    )
+    expect((await dashboardData(YEAR_2026)).firstYear).toBeNull()
+
+    await issue(
+      draftFor(acme, [{ description: 'Old', quantity: 1, unit_price: 100, vat_rate: 21 }]),
+      new Date(2019, 5, 1, 9, 0),
+    )
+    await issue(
+      draftFor(acme, [{ description: 'New', quantity: 1, unit_price: 100, vat_rate: 21 }]),
+      new Date(2026, 5, 1, 9, 0),
+    )
+    expect((await dashboardData(YEAR_2026)).firstYear).toBe(2019)
+  })
+
+  it('returns an empty outstanding list and the same summary as summaryForPeriod', async () => {
+    const data = await dashboardData(YEAR_2026)
+    expect(data.outstanding).toEqual({ count: 0, total: 0, overdueCount: 0, invoices: [] })
+    expect(data.summary).toEqual(await summaryForPeriod(YEAR_2026))
+  })
+})
+

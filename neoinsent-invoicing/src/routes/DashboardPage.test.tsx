@@ -31,9 +31,9 @@ const SUMMARY = {
   vatAmount: 139.5,
   total: 2409.48,
   vatByRate: [
-    { rate: 21, base: 210.01, vat: 44.1 },
-    { rate: 9, base: 1059.97, vat: 95.4 },
-    { rate: 0, base: 1000, vat: 0 },
+    { treatment: 'nl_standard', rate: 21, base: 210.01, vat: 44.1 },
+    { treatment: 'nl_standard', rate: 9, base: 1059.97, vat: 95.4 },
+    { treatment: 'eu_reverse_charge', rate: 0, base: 1000, vat: 0 },
   ],
   reverseChargeRevenue: 1000,
   unpaidCount: 2,
@@ -77,6 +77,8 @@ function dashboard(overrides: Record<string, unknown> = {}) {
     summary: SUMMARY,
     invoices: [finalInvoice()],
     drafts: [],
+    outstanding: { count: 0, total: 0, overdueCount: 0, invoices: [] },
+    firstYear: 2026,
     ...overrides,
   }
 }
@@ -156,6 +158,36 @@ describe('DashboardPage', () => {
     expect(fetchMock.mock.calls[0][0]).toBe('/api/dashboard?year=2025&quarter=3')
   })
 
+  it('offers every year back to the first invoice, and remembers such a year', async () => {
+    setToday(new Date(2026, 10, 4, 12))
+    const fetchMock = stubFetch(dashboard({ firstYear: 2019 }))
+    const user = userEvent.setup()
+    const { unmount } = renderPage()
+    await finalTable()
+    const options = within(screen.getByLabelText('Year')).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019'])
+
+    await user.selectOptions(screen.getByLabelText('Year'), '2019')
+    await waitFor(() => expect(fetchMock).toHaveBeenLastCalledWith('/api/dashboard?year=2019', expect.anything()))
+    await finalTable()
+    unmount()
+
+    fetchMock.mockClear()
+    renderPage()
+    expect(screen.getByLabelText('Year')).toHaveValue('2019')
+    await finalTable()
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/dashboard?year=2019')
+  })
+
+  it('offers the last five years when there are no final invoices yet', async () => {
+    setToday(new Date(2026, 10, 4, 12))
+    stubFetch(dashboard({ firstYear: null }))
+    renderPage()
+    await finalTable()
+    const options = within(screen.getByLabelText('Year')).getAllByRole('option')
+    expect(options.map((o) => o.textContent)).toEqual(['2026', '2025', '2024', '2023', '2022'])
+  })
+
   it('ignores a remembered year outside the offered range', async () => {
     setToday(new Date(2026, 10, 4, 12))
     localStorage.setItem('neoinsent.dashboardPeriod', JSON.stringify({ year: 2019, quarter: 2 }))
@@ -192,8 +224,78 @@ describe('DashboardPage', () => {
     expect(card('VAT')).not.toHaveTextContent('0%:')
     expect(card('Reverse-charged (EU)')).toHaveTextContent(money(1000))
     expect(card('Total incl. VAT')).toHaveTextContent(money(2409.48))
-    expect(card('Unpaid')).toHaveTextContent(money(1307.37))
-    expect(card('Unpaid')).toHaveTextContent('2 invoices')
+    expect(card('Unpaid (this period)')).toHaveTextContent(money(1307.37))
+    expect(card('Unpaid (this period)')).toHaveTextContent('2 invoices')
+  })
+
+  it('shows only domestic rates above 0% in the VAT breakdown, never reverse charge', async () => {
+    stubFetch(
+      dashboard({
+        summary: {
+          ...SUMMARY,
+          vatByRate: [
+            { treatment: 'nl_standard', rate: 21, base: 100, vat: 21 },
+            { treatment: 'nl_standard', rate: 0, base: 40, vat: 0 },
+            { treatment: 'eu_reverse_charge', rate: 0, base: 1000, vat: 0 },
+          ],
+        },
+      }),
+    )
+    renderPage()
+    await finalTable()
+    const vatCard = screen.getByRole('group', { name: 'VAT' })
+    expect(vatCard).toHaveTextContent(`21%: ${money(21)}`)
+    expect(vatCard).not.toHaveTextContent('0%:')
+  })
+
+  it('lists every outstanding invoice, whatever the period, with its due date and overdue flag', async () => {
+    setToday(new Date(2026, 10, 4, 12))
+    stubFetch(
+      dashboard({
+        invoices: [],
+        outstanding: {
+          count: 2,
+          total: 1331,
+          overdueCount: 1,
+          invoices: [
+            finalInvoice({
+              id: 'old',
+              invoice_number: 'NEO-2024-0007',
+              client_name: 'Old Client BV',
+              issue_date: '2024-05-01',
+              due_date: '2024-05-15',
+              total: 1210,
+            }),
+            finalInvoice({ id: 'new', invoice_number: 'NEO-2026-0003', due_date: '2026-11-15', total: 121 }),
+          ],
+        },
+      }),
+    )
+    renderPage()
+    const table = await screen.findByRole('table', { name: /Outstanding/ })
+    const heading = screen.getByRole('heading', { level: 2, name: /Outstanding/ })
+    expect(heading).toHaveTextContent('2 invoices')
+    expect(heading).toHaveTextContent(money(1331))
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(rows).toHaveLength(2)
+    expect(within(rows[0]).getByRole('link', { name: 'NEO-2024-0007' })).toHaveAttribute('href', '/invoices/old')
+    expect(rows[0]).toHaveTextContent('Old Client BV')
+    expect(rows[0]).toHaveTextContent('15-05-2024')
+    expect(rows[0]).toHaveTextContent(money(1210))
+    expect(within(rows[0]).getByText('Overdue')).toHaveClass('flag-danger')
+    expect(within(rows[1]).getByRole('link', { name: 'NEO-2026-0003' })).toHaveAttribute('href', '/invoices/new')
+    expect(within(rows[1]).queryByText('Overdue')).not.toBeInTheDocument()
+    // It sits above the period's table.
+    const periodHeading = screen.getByRole('heading', { name: 'Final invoices' })
+    expect(heading.compareDocumentPosition(periodHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('hides the outstanding section when nothing is outstanding', async () => {
+    stubFetch()
+    renderPage()
+    await finalTable()
+    expect(screen.queryByRole('heading', { name: /Outstanding/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: /Outstanding/ })).not.toBeInTheDocument()
   })
 
   it('lists final invoices with links, dates, totals and status', async () => {
@@ -285,5 +387,25 @@ describe('DashboardPage', () => {
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Database error — please try again')
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('retries the current period from the error state', async () => {
+    setToday(new Date(2026, 10, 4, 12))
+    localStorage.setItem('neoinsent.dashboardPeriod', JSON.stringify({ year: 2025, quarter: 2 }))
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: 'Database error — please try again' }, 500))
+      .mockResolvedValue(jsonResponse(dashboard()))
+    vi.stubGlobal('fetch', fetchMock)
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByRole('alert')
+
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+
+    await finalTable()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/dashboard?year=2025&quarter=2')
   })
 })

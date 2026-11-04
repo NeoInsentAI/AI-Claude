@@ -25,13 +25,18 @@ interface DashboardData {
     subtotal: number
     vatAmount: number
     total: number
-    vatByRate: { rate: number; base: number; vat: number }[]
+    /** Per VAT treatment and rate; reverse charge is told apart by `treatment`, not by its 0% rate. */
+    vatByRate: { treatment: 'nl_standard' | 'eu_reverse_charge'; rate: number; base: number; vat: number }[]
     reverseChargeRevenue: number
     unpaidCount: number
     unpaidTotal: number
   }
   invoices: DashboardInvoice[]
   drafts: DashboardInvoice[]
+  /** Every unpaid final invoice, whatever the period, oldest due date first. */
+  outstanding: { count: number; total: number; overdueCount: number; invoices: DashboardInvoice[] }
+  /** Earliest year with a final invoice; null when there are none. */
+  firstYear: number | null
 }
 
 interface Period {
@@ -40,14 +45,29 @@ interface Period {
 }
 
 const PERIOD_KEY = 'neoinsent.dashboardPeriod'
-const YEARS_SHOWN = 5
+const FIRST_YEAR_KEY = 'neoinsent.dashboardFirstYear'
+/** At least this many years (the current one included) are always offered. */
+const MIN_YEARS_SHOWN = 5
 
-function yearOptions(currentYear: number): number[] {
-  return Array.from({ length: YEARS_SHOWN }, (_, i) => currentYear - i)
+/** Current year back to the first year with an invoice, and at least the last five years. */
+function yearOptions(currentYear: number, firstYear: number | null): number[] {
+  const oldest = Math.min(firstYear ?? currentYear, currentYear - (MIN_YEARS_SHOWN - 1))
+  return Array.from({ length: currentYear - oldest + 1 }, (_, i) => currentYear - i)
+}
+
+/** The first year the server last reported, so a remembered older year is valid before it answers. */
+function loadFirstYear(): number | null {
+  try {
+    const raw = localStorage.getItem(FIRST_YEAR_KEY)
+    const year = raw === null ? null : Number(JSON.parse(raw))
+    return typeof year === 'number' && Number.isInteger(year) ? year : null
+  } catch {
+    return null
+  }
 }
 
 /** The last period picked on this Mac, if it is still one of the offered choices. */
-function loadPeriod(currentYear: number): Period {
+function loadPeriod(currentYear: number, firstYear: number | null): Period {
   const fallback: Period = { year: currentYear, quarter: null }
   try {
     const raw = localStorage.getItem(PERIOD_KEY)
@@ -55,7 +75,7 @@ function loadPeriod(currentYear: number): Period {
     const saved = JSON.parse(raw) as Partial<Period> | null
     const year = saved?.year
     const quarter = saved?.quarter ?? null
-    if (typeof year !== 'number' || !yearOptions(currentYear).includes(year)) return fallback
+    if (typeof year !== 'number' || !yearOptions(currentYear, firstYear).includes(year)) return fallback
     if (quarter !== null && ![1, 2, 3, 4].includes(quarter)) return fallback
     return { year, quarter }
   } catch {
@@ -63,11 +83,11 @@ function loadPeriod(currentYear: number): Period {
   }
 }
 
-function savePeriod(period: Period): void {
+function store(key: string, value: unknown): void {
   try {
-    localStorage.setItem(PERIOD_KEY, JSON.stringify(period))
+    localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // Storage blocked or full: the choice simply isn't remembered.
+    // Storage blocked or full: the value simply isn't remembered.
   }
 }
 
@@ -92,15 +112,21 @@ function SummaryCard({ label, value, children }: { label: string; value: string;
   )
 }
 
+function invoiceCount(n: number): string {
+  return n === 1 ? '1 invoice' : `${n} invoices`
+}
+
 function StatusPill({ invoice }: { invoice: DashboardInvoice }) {
   return invoice.paid ? <span className="pill pill-paid">Paid</span> : <span className="pill pill-final">Finalized</span>
 }
 
 export function DashboardPage() {
   const currentYear = new Date().getFullYear()
-  const [period, setPeriod] = useState<Period>(() => loadPeriod(currentYear))
+  const [firstYear, setFirstYear] = useState<number | null>(loadFirstYear)
+  const [period, setPeriod] = useState<Period>(() => loadPeriod(currentYear, firstYear))
   const [data, setData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   const yearId = useId()
   const quarterId = useId()
 
@@ -110,7 +136,14 @@ export function DashboardPage() {
     setError(null)
     apiFetch<DashboardData>(dashboardUrl(period))
       .then((result) => {
-        if (!cancelled) setData(result)
+        if (cancelled) return
+        setData(result)
+        setFirstYear(result.firstYear)
+        store(FIRST_YEAR_KEY, result.firstYear)
+        // The data may no longer reach back to the chosen year (e.g. a restored database).
+        if (!yearOptions(currentYear, result.firstYear).includes(period.year)) {
+          setPeriod({ year: currentYear, quarter: null })
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the invoices')
@@ -118,17 +151,17 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [period])
+  }, [period, attempt, currentYear])
 
   function choose(next: Period) {
     setPeriod(next)
-    savePeriod(next)
+    store(PERIOD_KEY, next)
   }
 
   const today = todayLocalIso()
   const summary = data?.summary
   const vatBreakdown = summary?.vatByRate
-    .filter((r) => r.rate > 0)
+    .filter((r) => r.treatment === 'nl_standard' && r.rate > 0)
     .map((r) => `${r.rate}%: ${formatCurrency(r.vat)}`)
     .join(' · ')
 
@@ -149,7 +182,7 @@ export function DashboardPage() {
             value={period.year}
             onChange={(e) => choose({ ...period, year: Number(e.target.value) })}
           >
-            {yearOptions(currentYear).map((y) => (
+            {yearOptions(currentYear, firstYear).map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
@@ -174,9 +207,14 @@ export function DashboardPage() {
       </div>
 
       {error ? (
-        <p role="alert" className="error">
-          {error}
-        </p>
+        <div>
+          <p role="alert" className="error">
+            {error}
+          </p>
+          <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
+            Try again
+          </button>
+        </div>
       ) : !data || !summary ? (
         <p role="status">Loading invoices…</p>
       ) : (
@@ -199,12 +237,56 @@ export function DashboardPage() {
             </SummaryCard>
             <SummaryCard label="Reverse-charged (EU)" value={formatCurrency(summary.reverseChargeRevenue)} />
             <SummaryCard label="Total incl. VAT" value={formatCurrency(summary.total)} />
-            <SummaryCard label="Unpaid" value={formatCurrency(summary.unpaidTotal)}>
-              <p style={{ ...hint, marginTop: 4 }}>
-                {summary.unpaidCount === 1 ? '1 invoice' : `${summary.unpaidCount} invoices`}
-              </p>
+            <SummaryCard label="Unpaid (this period)" value={formatCurrency(summary.unpaidTotal)}>
+              <p style={{ ...hint, marginTop: 4 }}>{invoiceCount(summary.unpaidCount)}</p>
             </SummaryCard>
           </div>
+
+          {data.outstanding.count > 0 && (
+            <section className="card" aria-labelledby="outstanding-heading" style={{ marginBottom: 24 }}>
+              <h2 id="outstanding-heading">
+                Outstanding{' '}
+                <span className="num" style={{ fontWeight: 400 }}>
+                  · {invoiceCount(data.outstanding.count)} · {formatCurrency(data.outstanding.total)}
+                </span>
+              </h2>
+              {data.outstanding.overdueCount > 0 && (
+                <p style={{ ...hint, marginBottom: 8 }}>
+                  <span className="flag flag-danger">{`${data.outstanding.overdueCount} overdue`}</span>
+                </p>
+              )}
+              <div style={{ overflowX: 'auto' }}>
+                <table aria-label="Outstanding invoices">
+                  <thead>
+                    <tr>
+                      <th scope="col">Number</th>
+                      <th scope="col">Client</th>
+                      <th scope="col">Due date</th>
+                      <th scope="col" style={{ textAlign: 'right' }}>
+                        Total
+                      </th>
+                      <th scope="col">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.outstanding.invoices.map((invoice) => (
+                      <tr key={invoice.id}>
+                        <td>
+                          <Link to={`/invoices/${encodeURIComponent(invoice.id)}`}>{invoice.invoice_number}</Link>
+                        </td>
+                        <td>{invoice.client_name}</td>
+                        <td className="num">{formatDate(invoice.due_date)}</td>
+                        <td className="num" style={{ textAlign: 'right' }}>
+                          {formatCurrency(invoice.total)}
+                        </td>
+                        <td>{invoice.due_date < today && <span className="flag flag-danger">Overdue</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <section className="card" aria-labelledby="final-invoices-heading" style={{ marginBottom: 24 }}>
             <h2 id="final-invoices-heading">Final invoices</h2>

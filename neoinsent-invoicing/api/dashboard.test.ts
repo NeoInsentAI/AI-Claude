@@ -22,7 +22,7 @@ const SUMMARY: invoicesRepo.PeriodSummary = {
   subtotal: 100,
   vatAmount: 21,
   total: 121,
-  vatByRate: [{ rate: 21, base: 100, vat: 21 }],
+  vatByRate: [{ treatment: 'nl_standard', rate: 21, base: 100, vat: 21 }],
   reverseChargeRevenue: 0,
   unpaidCount: 1,
   unpaidTotal: 121,
@@ -30,6 +30,15 @@ const SUMMARY: invoicesRepo.PeriodSummary = {
 
 const FINAL = { id: 'f1', status: 'final' } as invoicesRepo.InvoiceSummary
 const DRAFT = { id: 'd1', status: 'draft' } as invoicesRepo.InvoiceSummary
+const OLD = { id: 'o1', status: 'final' } as invoicesRepo.InvoiceSummary
+
+const DATA: invoicesRepo.DashboardData = {
+  summary: SUMMARY,
+  invoices: [FINAL],
+  drafts: [DRAFT],
+  outstanding: { count: 2, total: 242, overdueCount: 1, invoices: [OLD, FINAL] },
+  firstYear: 2019,
+}
 
 async function get(query: Record<string, unknown>) {
   const res = createMockRes()
@@ -40,30 +49,24 @@ async function get(query: Record<string, unknown>) {
 describe('GET /api/dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(invoicesRepo.summaryForPeriod).mockResolvedValue(SUMMARY)
-    vi.mocked(invoicesRepo.listInvoices).mockImplementation(async (filter = {}) =>
-      filter.status === 'draft' ? [DRAFT] : [FINAL],
-    )
+    vi.mocked(invoicesRepo.dashboardData).mockResolvedValue(DATA)
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('returns the period, its summary, its final invoices and all drafts', async () => {
+  it('returns the period with its data, outstanding invoices and first year, read in one call', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 10, 4, 23, 30))
     const res = await get({ year: '2026', quarter: '2' })
 
     const range = { fromDate: '2026-04-01', toDate: '2026-06-30' }
-    expect(invoicesRepo.summaryForPeriod).toHaveBeenCalledWith(range)
-    expect(invoicesRepo.listInvoices).toHaveBeenCalledWith({ ...range, status: 'final' })
-    expect(invoicesRepo.listInvoices).toHaveBeenCalledWith({ status: 'draft' })
+    expect(invoicesRepo.dashboardData).toHaveBeenCalledTimes(1)
+    // "today" (for overdue) is the server's local date, not UTC.
+    expect(invoicesRepo.dashboardData).toHaveBeenCalledWith({ ...range, today: '2026-11-04' })
     expect(res.statusCode).toBe(200)
-    expect(res.body).toEqual({
-      period: { year: 2026, quarter: 2, ...range },
-      summary: SUMMARY,
-      invoices: [FINAL],
-      drafts: [DRAFT],
-    })
+    expect(res.body).toEqual({ period: { year: 2026, quarter: 2, ...range }, ...DATA })
   })
 
   it('covers the whole year when only a year is given', async () => {
@@ -93,8 +96,7 @@ describe('GET /api/dashboard', () => {
       expect(res.statusCode).toBe(400)
       expect(res.body).toEqual({ error: expect.stringMatching(/year|quarter/i) })
     }
-    expect(invoicesRepo.summaryForPeriod).not.toHaveBeenCalled()
-    expect(invoicesRepo.listInvoices).not.toHaveBeenCalled()
+    expect(invoicesRepo.dashboardData).not.toHaveBeenCalled()
   })
 
   it('answers 405 for anything but GET', async () => {
@@ -107,7 +109,7 @@ describe('GET /api/dashboard', () => {
 
   it('answers 500 with a generic message when the database fails', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    vi.mocked(invoicesRepo.summaryForPeriod).mockRejectedValue(new Error('disk I/O error'))
+    vi.mocked(invoicesRepo.dashboardData).mockRejectedValue(new Error('disk I/O error'))
     const res = await get({ year: '2026' })
     expect(res.statusCode).toBe(500)
     expect(res.body).toEqual({ error: 'Database error — please try again' })

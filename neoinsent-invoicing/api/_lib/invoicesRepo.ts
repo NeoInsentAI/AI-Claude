@@ -105,10 +105,18 @@ export interface PeriodRange {
   toDate: string
 }
 
+/**
+ * One line of the VAT breakdown: amounts per VAT treatment AND rate, so 0% reverse-charge
+ * revenue never mixes with 0% domestic lines.
+ *
+ * Task 21 (BTW return / ICP listing) must select on `treatment`, never on `rate`: reverse-charge
+ * revenue is `treatment === 'eu_reverse_charge'` (BTW rubriek 3b / ICP), whatever its rate.
+ */
 export interface VatRateTotal {
+  treatment: InvoiceVatTreatment
   /** VAT rate in percent (21, 9, 0). */
   rate: number
-  /** Sum of the lines' amounts excl. VAT at this rate. */
+  /** Sum of the lines' amounts excl. VAT with this treatment and rate. */
   base: number
   vat: number
 }
@@ -119,12 +127,42 @@ export interface PeriodSummary {
   subtotal: number
   vatAmount: number
   total: number
-  /** Per VAT rate, highest rate first; adds up to subtotal and vatAmount. */
+  /**
+   * Per VAT treatment (domestic first) and rate (highest first); adds up to subtotal and
+   * vatAmount. See VatRateTotal: tax reports must use the treatment, not the rate.
+   */
   vatByRate: VatRateTotal[]
   /** Amount excl. VAT of EU reverse-charge invoices (ICP). */
   reverseChargeRevenue: number
   unpaidCount: number
   unpaidTotal: number
+}
+
+/** Every final invoice not yet paid, regardless of when it was issued. */
+export interface OutstandingSummary {
+  count: number
+  total: number
+  /** How many are past their due date (due_date before `today`). */
+  overdueCount: number
+  /** Ordered by due date, oldest first. */
+  invoices: InvoiceSummary[]
+}
+
+export interface DashboardQuery extends PeriodRange {
+  /** The local calendar date (YYYY-MM-DD) used to decide what is overdue. */
+  today: string
+}
+
+/** Everything the dashboard shows, read in one transaction so the figures agree with each other. */
+export interface DashboardData {
+  summary: PeriodSummary
+  /** Final invoices issued in the period, newest first. */
+  invoices: InvoiceSummary[]
+  /** Every draft, regardless of date. */
+  drafts: InvoiceSummary[]
+  outstanding: OutstandingSummary
+  /** Earliest year with a final invoice; null when there are none yet. */
+  firstYear: number | null
 }
 
 interface InvoiceRow {
@@ -315,7 +353,17 @@ export async function createDraftInvoice(input: DraftInvoiceInput): Promise<Invo
   return fromInvoiceRow(row)
 }
 
-export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<InvoiceSummary[]> {
+const SUMMARY_SELECT = `select i.id, i.invoice_number, i.client_id,
+       -- A final invoice keeps the name it was issued to, even after the client is renamed.
+       coalesce(json_extract(i.client_snapshot, '$.name'), c.name) as client_name, i.status,
+       i.vat_treatment, i.issue_date, i.due_date, i.subtotal_cents, i.vat_amount_cents, i.total_cents,
+       i.paid, i.pdf_path
+from invoices i join clients c on c.id = i.client_id`
+
+// created_at, then rowid (insertion order), keep same-day invoices in a stable order.
+const NEWEST_FIRST = 'order by i.issue_date desc, i.created_at desc, i.rowid desc'
+
+function selectSummaries(db: DatabaseSync, filter: ListInvoicesFilter): InvoiceSummary[] {
   const conditions: string[] = []
   const params: string[] = []
   if (filter.fromDate) {
@@ -331,20 +379,12 @@ export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<Inv
     params.push(filter.status)
   }
   const where = conditions.length ? `where ${conditions.join(' and ')}` : ''
-  const rows = getDb()
-    .prepare(
-      `select i.id, i.invoice_number, i.client_id,
-              -- A final invoice keeps the name it was issued to, even after the client is renamed.
-              coalesce(json_extract(i.client_snapshot, '$.name'), c.name) as client_name, i.status,
-              i.vat_treatment, i.issue_date, i.due_date, i.subtotal_cents, i.vat_amount_cents, i.total_cents,
-              i.paid, i.pdf_path
-       from invoices i join clients c on c.id = i.client_id
-       ${where}
-       -- created_at, then rowid (insertion order), keep same-day invoices in a stable order.
-       order by i.issue_date desc, i.created_at desc, i.rowid desc`,
-    )
-    .all(...params) as unknown as SummaryRow[]
+  const rows = db.prepare(`${SUMMARY_SELECT} ${where} ${NEWEST_FIRST}`).all(...params) as unknown as SummaryRow[]
   return rows.map(fromSummaryRow)
+}
+
+export async function listInvoices(filter: ListInvoicesFilter = {}): Promise<InvoiceSummary[]> {
+  return selectSummaries(getDb(), filter)
 }
 
 interface PeriodTotalsRow {
@@ -357,13 +397,10 @@ interface PeriodTotalsRow {
   unpaid_cents: number
 }
 
-/**
- * Totals over the final invoices issued in `range` (inclusive). Sums run over integer cents and
- * are converted to euros once at the end. The per-rate split recomputes each stored line's
- * amount excl. VAT and VAT with invoiceMath's rounding, so it adds up to the invoices' totals.
- */
-export async function summaryForPeriod(range: PeriodRange): Promise<PeriodSummary> {
-  const db = getDb()
+const TREATMENT_ORDER: Record<InvoiceVatTreatment, number> = { nl_standard: 0, eu_reverse_charge: 1 }
+
+/** See summaryForPeriod. Synchronous, so it can run inside a transaction. */
+function periodSummary(db: DatabaseSync, range: PeriodRange): PeriodSummary {
   const totals = db
     .prepare(
       `select count(*) as invoice_count,
@@ -381,25 +418,26 @@ export async function summaryForPeriod(range: PeriodRange): Promise<PeriodSummar
 
   const lines = db
     .prepare(
-      `select it.quantity_hundredths, it.unit_price_cents, it.vat_rate
+      `select i.vat_treatment, it.quantity_hundredths, it.unit_price_cents, it.vat_rate
        from invoice_items it join invoices i on i.id = it.invoice_id
        where i.status = 'final' and i.issue_date between ? and ?`,
     )
-    .all(range.fromDate, range.toDate) as unknown as Pick<
+    .all(range.fromDate, range.toDate) as unknown as (Pick<
     InvoiceItemRow,
     'quantity_hundredths' | 'unit_price_cents' | 'vat_rate'
-  >[]
-  const byRate = new Map<number, { baseCents: number; vatCents: number }>()
+  > & { vat_treatment: InvoiceVatTreatment })[]
+  const groups = new Map<string, { treatment: InvoiceVatTreatment; rate: number; baseCents: number; vatCents: number }>()
   for (const line of lines) {
     const cents = computeStoredLineCents({
       quantityHundredths: line.quantity_hundredths,
       unitPriceCents: line.unit_price_cents,
       vatRate: line.vat_rate,
     })
-    const entry = byRate.get(line.vat_rate) ?? { baseCents: 0, vatCents: 0 }
+    const key = `${line.vat_treatment}|${line.vat_rate}`
+    const entry = groups.get(key) ?? { treatment: line.vat_treatment, rate: line.vat_rate, baseCents: 0, vatCents: 0 }
     entry.baseCents += cents.subtotalCents
     entry.vatCents += cents.vatCents
-    byRate.set(line.vat_rate, entry)
+    groups.set(key, entry)
   }
 
   return {
@@ -407,13 +445,68 @@ export async function summaryForPeriod(range: PeriodRange): Promise<PeriodSummar
     subtotal: fromCents(totals.subtotal_cents),
     vatAmount: fromCents(totals.vat_amount_cents),
     total: fromCents(totals.total_cents),
-    vatByRate: [...byRate.entries()]
-      .sort(([a], [b]) => b - a)
-      .map(([rate, { baseCents, vatCents }]) => ({ rate, base: fromCents(baseCents), vat: fromCents(vatCents) })),
+    vatByRate: [...groups.values()]
+      .sort((a, b) => TREATMENT_ORDER[a.treatment] - TREATMENT_ORDER[b.treatment] || b.rate - a.rate)
+      .map(({ treatment, rate, baseCents, vatCents }) => ({
+        treatment,
+        rate,
+        base: fromCents(baseCents),
+        vat: fromCents(vatCents),
+      })),
     reverseChargeRevenue: fromCents(totals.reverse_charge_cents),
     unpaidCount: totals.unpaid_count,
     unpaidTotal: fromCents(totals.unpaid_cents),
   }
+}
+
+/**
+ * Totals over the final invoices issued in `range` (inclusive). Sums run over integer cents and
+ * are converted to euros once at the end. The per-treatment/per-rate split recomputes each stored
+ * line's amount excl. VAT and VAT with invoiceMath's rounding, so it adds up to the invoices' totals.
+ */
+export async function summaryForPeriod(range: PeriodRange): Promise<PeriodSummary> {
+  return periodSummary(getDb(), range)
+}
+
+/** Every unpaid final invoice, oldest due date first. Synchronous, for use inside a transaction. */
+function outstandingInvoices(db: DatabaseSync, today: string): OutstandingSummary {
+  const rows = db
+    .prepare(
+      `${SUMMARY_SELECT}
+       where i.status = 'final' and i.paid = 0
+       order by i.due_date asc, i.issue_date asc, i.invoice_number asc`,
+    )
+    .all() as unknown as SummaryRow[]
+  const totalCents = rows.reduce((sum, row) => sum + row.total_cents, 0)
+  return {
+    count: rows.length,
+    total: fromCents(totalCents),
+    overdueCount: rows.filter((row) => row.due_date < today).length,
+    invoices: rows.map(fromSummaryRow),
+  }
+}
+
+function firstFinalYear(db: DatabaseSync): number | null {
+  const row = db
+    .prepare(`select min(cast(substr(issue_date, 1, 4) as integer)) as year from invoices where status = 'final'`)
+    .get() as { year: number | null }
+  return row.year ?? null
+}
+
+/**
+ * The dashboard's data for a period, read in ONE transaction so the totals, the period's invoices,
+ * the drafts and the outstanding list all describe the same moment.
+ */
+export async function dashboardData({ fromDate, toDate, today }: DashboardQuery): Promise<DashboardData> {
+  const db = getDb()
+  const range = { fromDate, toDate }
+  return withTransaction(db, () => ({
+    summary: periodSummary(db, range),
+    invoices: selectSummaries(db, { ...range, status: 'final' }),
+    drafts: selectSummaries(db, { status: 'draft' }),
+    outstanding: outstandingInvoices(db, today),
+    firstYear: firstFinalYear(db),
+  }))
 }
 
 export async function getInvoice(id: string): Promise<InvoiceWithDetails | null> {
