@@ -184,6 +184,57 @@ function countryName(code: string, language: 'nl' | 'en'): string {
   }
 }
 
+/** The stored fields of an invoice that its PDF is built from (structurally an `InvoiceWithDetails`). */
+export interface StoredInvoiceForPdf {
+  status: 'draft' | 'final'
+  invoice_number: string | null
+  language: 'nl' | 'en'
+  vat_treatment: InvoiceVatTreatment
+  issue_date: string
+  due_date: string
+  service_period: string | null
+  notes: string | null
+  client_snapshot: ClientDetails | null
+  items: InvoicePdfInput['items']
+  subtotal: number
+  vat_amount: number
+  total: number
+}
+
+/**
+ * The PDF input of a final invoice, taken only from what was stored when it was issued: its
+ * number, amounts, lines and the client snapshot — never the live client, which may have been
+ * edited since. Throws for a draft (drafts have no PDF) or a final invoice without a snapshot.
+ */
+export function pdfInputForStoredInvoice(invoice: StoredInvoiceForPdf): InvoicePdfInput {
+  if (invoice.status !== 'final' || !invoice.invoice_number) {
+    throw new Error('Only a finalized invoice has a PDF')
+  }
+  if (!invoice.client_snapshot) {
+    throw new Error(`Invoice ${invoice.invoice_number} has no client snapshot`)
+  }
+  return {
+    invoiceNumber: invoice.invoice_number,
+    language: invoice.language,
+    vatTreatment: invoice.vat_treatment,
+    issueDate: invoice.issue_date,
+    dueDate: invoice.due_date,
+    servicePeriod: invoice.service_period,
+    notes: invoice.notes,
+    client: invoice.client_snapshot,
+    items: invoice.items.map(({ description, quantity, unit_price, vat_rate, line_total }) => ({
+      description,
+      quantity,
+      unit_price,
+      vat_rate,
+      line_total,
+    })),
+    subtotal: invoice.subtotal,
+    vatAmount: invoice.vat_amount,
+    total: invoice.total,
+  }
+}
+
 /**
  * Builds the printable content of an invoice. Pure: all money logic lives here (testable without
  * rendering); `invoicePdf.tsx` only lays it out.

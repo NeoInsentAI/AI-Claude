@@ -180,7 +180,7 @@ function isInside(child: string, parent: string): boolean {
 }
 
 /** Creates a directory (and parents) readable by the owner only. */
-function mkdirPrivate(dir: string): void {
+export function mkdirPrivate(dir: string): void {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 })
 }
 
@@ -226,7 +226,8 @@ function migrate(db: DatabaseSync): void {
   })
 }
 
-function timestamp(d: Date): string {
+/** Local time as `YYYYMMDD-HHmmss`, for backup file names. */
+export function fileTimestamp(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   return (
     `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-` +
@@ -244,7 +245,7 @@ function backupBeforeMigration(db: DatabaseSync, filePath: string): void {
   if (from <= 0 || from >= MIGRATIONS.length) return
   const dir = path.join(path.dirname(filePath), 'backups')
   mkdirPrivate(dir)
-  const base = `pre-migration-v${from}-to-v${MIGRATIONS.length}-${timestamp(new Date())}`
+  const base = `pre-migration-v${from}-to-v${MIGRATIONS.length}-${fileTimestamp(new Date())}`
   let dest = path.join(dir, `${base}.db`)
   for (let i = 2; fs.existsSync(dest); i++) dest = path.join(dir, `${base}-${i}.db`)
   backupDb(db, dest)

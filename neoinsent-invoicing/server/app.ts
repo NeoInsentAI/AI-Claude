@@ -5,6 +5,7 @@ import clientsHandler from '../api/clients/index'
 import clientHandler from '../api/clients/[id]'
 import invoicesHandler from '../api/invoices/index'
 import invoiceHandler from '../api/invoices/[id]'
+import finalizeInvoiceHandler from '../api/invoices/finalize'
 
 type Handler = (req: Request, res: Response) => unknown
 
@@ -133,6 +134,7 @@ export function createApp({ port, distDir = path.resolve(import.meta.dirname, '.
   app.all('/api/clients/:id', wrap(clientHandler))
   app.all('/api/invoices', wrap(invoicesHandler))
   app.all('/api/invoices/:id', wrap(invoiceHandler))
+  app.all('/api/invoices/:id/finalize', wrap(finalizeInvoiceHandler))
   app.use('/api', (_req, res) => {
     res.status(404).json({ error: 'Not found' })
   })

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import type { DatabaseSync } from 'node:sqlite'
-import { fromCents, getDb, toCents, toHundredths, withTransaction } from './db'
+import { fromCents, getDb, nextInvoiceNumber, toCents, toHundredths, withTransaction } from './db'
 import { CLIENT_COLUMNS, toClient, type Client, type NewClient } from './clientsRepo'
+import { vatMismatchMessage } from './checkClientForDraft'
+import { buildInvoicePdfModel, pdfInputForStoredInvoice, type InvoicePdfModel } from './invoicePdfModel'
 import { computeInvoiceTotals, computeLine } from '../../src/lib/invoiceMath'
-import type { InvoiceVatTreatment } from '../../src/lib/vat'
+import { determineVatTreatment, type InvoiceVatTreatment } from '../../src/lib/vat'
 
 // The database stores money as integer cents and quantities as integer hundredths; everything
 // this module returns is in euros / plain quantities, converted at this boundary.
@@ -345,4 +347,127 @@ export async function replaceDraftInvoice(
     insertItems(db, id, input.items)
     return loadInvoice(db, id) as InvoiceWithDetails
   })
+}
+
+export type FinalizeResult =
+  | { status: 'not_found' }
+  | { status: 'locked' }
+  | { status: 'vat_mismatch'; message: string }
+  /** The invoice data can't be printed as a valid invoice (the PDF rules refused it). */
+  | { status: 'invalid'; message: string }
+  | { status: 'ok'; invoice: InvoiceWithDetails; pdfModel: InvoicePdfModel }
+
+/** Thrown inside the finalize transaction to roll it back and return `result` instead. */
+class FinalizeRollback {
+  constructor(readonly result: FinalizeResult) {}
+}
+
+/** The fields of a client that are frozen onto an invoice when it is finalized. */
+function snapshotOf(client: Client): ClientSnapshot {
+  return {
+    name: client.name,
+    contact_person: client.contact_person,
+    email: client.email,
+    address_line: client.address_line,
+    postal_code: client.postal_code,
+    city: client.city,
+    country: client.country,
+    vat_number: client.vat_number,
+    kvk_number: client.kvk_number,
+  }
+}
+
+/** 'NEO-2026-0001' — the per-year sequence, zero-padded to at least 4 digits. */
+function formatInvoiceNumber(year: number, seq: number): string {
+  return `NEO-${year}-${String(seq).padStart(4, '0')}`
+}
+
+/**
+ * Issues a draft: in ONE transaction it re-checks the VAT treatment against the live client,
+ * recomputes the stored line and invoice totals from the lines, takes the next gap-free number
+ * for the issue year, freezes the client snapshot, sets status 'final', and builds the PDF model
+ * from exactly what was stored. Any refusal or error rolls everything back — the counter
+ * included — so a number is only ever consumed by an invoice that is actually issued.
+ *
+ * Writing the PDF file happens after commit (see invoicePdfFiles.ts); `pdf_path` stays null
+ * until then.
+ */
+export async function finalizeDraftInvoice(id: string, now: Date = new Date()): Promise<FinalizeResult> {
+  const db = getDb()
+  const timestamp = now.toISOString()
+  try {
+    return withTransaction(db, (): FinalizeResult => {
+      const row = selectInvoiceRow(db, id)
+      if (!row) return { status: 'not_found' }
+      if (row.status !== 'draft') return { status: 'locked' }
+
+      const clientRow = db.prepare(`select ${CLIENT_COLUMNS} from clients where id = ?`).get(row.client_id)
+      if (clientRow === undefined) throw new Error(`Invoice ${id}: client ${row.client_id} not found`)
+      const client = toClient(clientRow)
+
+      const expected = determineVatTreatment(client.country, client.vat_number).treatment
+      if (expected !== row.vat_treatment) {
+        return { status: 'vat_mismatch', message: vatMismatchMessage(expected) }
+      }
+
+      const items = db
+        .prepare('select * from invoice_items where invoice_id = ? order by sort_order')
+        .all(id) as unknown as InvoiceItemRow[]
+      if (items.length === 0) return { status: 'invalid', message: 'An invoice needs at least one line' }
+
+      // Recompute every stored amount from the lines with the current (integer-cent) rules, so
+      // the issued totals always agree with the lines printed on the PDF.
+      const lines = items.map((item) => ({
+        id: item.id,
+        input: {
+          description: item.description,
+          quantity: item.quantity_hundredths / 100,
+          unit_price: fromCents(item.unit_price_cents),
+          vat_rate: item.vat_rate,
+        },
+      }))
+      const updateLine = db.prepare('update invoice_items set line_total_cents = ? where id = ?')
+      for (const line of lines) {
+        updateLine.run(toCents(computeLine(toLineInput(line.input)).lineTotal), line.id)
+      }
+      const totals = totalsInCents(lines.map((line) => line.input))
+      db.prepare(
+        'update invoices set subtotal_cents = ?, vat_amount_cents = ?, total_cents = ? where id = ?',
+      ).run(totals.subtotal_cents, totals.vat_amount_cents, totals.total_cents, id)
+
+      const year = Number(row.issue_date.slice(0, 4))
+      const invoiceNumber = formatInvoiceNumber(year, nextInvoiceNumber(db, year))
+      const result = db
+        .prepare(
+          `update invoices set status = 'final', invoice_number = ?, client_snapshot = ?,
+                               finalized_at = ?, updated_at = ?
+           where id = ? and status = 'draft'`,
+        )
+        .run(invoiceNumber, JSON.stringify(snapshotOf(client)), timestamp, timestamp, id)
+      if (result.changes !== 1) throw new Error(`Invoice ${id}: finalize updated ${result.changes} rows`)
+
+      const invoice = loadInvoice(db, id) as InvoiceWithDetails
+      let pdfModel: InvoicePdfModel
+      try {
+        pdfModel = buildInvoicePdfModel(pdfInputForStoredInvoice(invoice))
+      } catch (error) {
+        throw new FinalizeRollback({
+          status: 'invalid',
+          message: error instanceof Error ? error.message : String(error),
+        })
+      }
+      return { status: 'ok', invoice, pdfModel }
+    })
+  } catch (error) {
+    if (error instanceof FinalizeRollback) return error.result
+    throw error
+  }
+}
+
+/** Records where a final invoice's PDF was written (relative to the data folder). */
+export async function setInvoicePdfPath(id: string, relPath: string): Promise<boolean> {
+  const result = getDb()
+    .prepare('update invoices set pdf_path = ?, updated_at = ? where id = ?')
+    .run(relPath, new Date().toISOString(), id)
+  return result.changes > 0
 }
