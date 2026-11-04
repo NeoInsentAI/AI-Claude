@@ -13,17 +13,27 @@ pause_and_exit() {
 
 # Terminal normally provides the user's PATH; add the usual install locations just in case.
 export PATH="$PATH:/opt/homebrew/bin:/usr/local/bin"
-if ! command -v node >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
+
+node_ok() {
+  command -v node >/dev/null 2>&1 && command -v npm >/dev/null 2>&1 &&
+    [ "$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)" -ge 24 ] 2>/dev/null
+}
+
+# Node missing or older than 24: if nvm is installed, try its Node 24, then its default, then
+# its newest version.
+if ! node_ok && [ -s "$HOME/.nvm/nvm.sh" ]; then
   # shellcheck disable=SC1091
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
+  for version in 24 default node; do
+    nvm use "$version" >/dev/null 2>&1 && node_ok && break
+  done
 fi
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Node.js is not installed. Install Node.js 24 (or newer) from https://nodejs.org and try again."
   pause_and_exit 1
 fi
-NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null)"
-if ! [ "$NODE_MAJOR" -ge 24 ] 2>/dev/null; then
+if ! node_ok; then
   echo "NeoInsent needs Node.js 24 or newer (this Mac has $(node -v 2>/dev/null))."
   echo "Install Node.js 24 from https://nodejs.org and try again."
   pause_and_exit 1
@@ -46,12 +56,20 @@ if is_running; then
   exit 0
 fi
 
-if [ ! -d node_modules ]; then
-  echo "First start: installing the app's components (this takes a minute)…"
+# Install on the first start, and again whenever the app was updated with new components
+# (package-lock.json newer than npm's record of what is installed).
+if [ ! -f node_modules/.package-lock.json ] || [ package-lock.json -nt node_modules/.package-lock.json ]; then
+  if [ -d node_modules ]; then
+    echo "The app was updated: installing its components (this takes a minute)…"
+  else
+    echo "First start: installing the app's components (this takes a minute)…"
+  fi
   if ! npm install; then
     echo "Installing failed. Check your internet connection and try again."
     pause_and_exit 1
   fi
+  # npm leaves the file alone when nothing changed; mark the install as up to date either way.
+  touch node_modules/.package-lock.json
 fi
 
 # Wait in the background for the server to answer, then open the browser.
@@ -70,6 +88,9 @@ fi
   echo "NeoInsent did not start within 60 seconds. Look at the messages above for the reason."
 ) &
 WAITER=$!
+# However the app stops (Ctrl+C, closing the window, an error), stop the waiter too, so it never
+# reports a startup timeout after the fact.
+trap 'kill "$WAITER" 2>/dev/null' EXIT INT HUP
 
 # Build the frontend and run the server in the foreground, so Ctrl+C stops it.
 export PORT
