@@ -22,6 +22,8 @@ export interface DraftInvoiceInput {
   issue_date: string
   due_date: string
   notes: string | null
+  /** Date or period of supply (leverdatum) when it differs from the issue date, e.g. 'October 2026'. */
+  service_period: string | null
   items: InvoiceItemInput[]
 }
 
@@ -38,6 +40,8 @@ export interface Invoice {
   issue_date: string
   due_date: string
   notes: string | null
+  /** Date or period of supply (leverdatum), when it differs from the issue date. */
+  service_period: string | null
   subtotal: number
   vat_amount: number
   total: number
@@ -97,6 +101,7 @@ interface InvoiceRow {
   issue_date: string
   due_date: string
   notes: string | null
+  service_period: string | null
   subtotal_cents: number
   vat_amount_cents: number
   total_cents: number
@@ -145,6 +150,7 @@ function fromInvoiceRow(row: InvoiceRow): Invoice {
     issue_date: row.issue_date,
     due_date: row.due_date,
     notes: row.notes,
+    service_period: row.service_period,
     subtotal: fromCents(row.subtotal_cents),
     vat_amount: fromCents(row.vat_amount_cents),
     total: fromCents(row.total_cents),
@@ -246,8 +252,9 @@ export async function createDraftInvoice(input: DraftInvoiceInput): Promise<Invo
   const row = withTransaction(db, () => {
     db.prepare(
       `insert into invoices (id, client_id, status, language, vat_treatment, issue_date, due_date,
-                             notes, subtotal_cents, vat_amount_cents, total_cents, created_at)
-       values (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                             notes, service_period, subtotal_cents, vat_amount_cents,
+                             total_cents, created_at)
+       values (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.client_id,
@@ -256,6 +263,7 @@ export async function createDraftInvoice(input: DraftInvoiceInput): Promise<Invo
       input.issue_date,
       input.due_date,
       input.notes,
+      input.service_period,
       totals.subtotal_cents,
       totals.vat_amount_cents,
       totals.total_cents,
@@ -316,8 +324,8 @@ export async function replaceDraftInvoice(
 
     db.prepare(
       `update invoices set client_id = ?, language = ?, vat_treatment = ?, issue_date = ?,
-                           due_date = ?, notes = ?, subtotal_cents = ?, vat_amount_cents = ?,
-                           total_cents = ?, updated_at = ?
+                           due_date = ?, notes = ?, service_period = ?, subtotal_cents = ?,
+                           vat_amount_cents = ?, total_cents = ?, updated_at = ?
        where id = ?`,
     ).run(
       input.client_id,
@@ -326,6 +334,7 @@ export async function replaceDraftInvoice(
       input.issue_date,
       input.due_date,
       input.notes,
+      input.service_period,
       totals.subtotal_cents,
       totals.vat_amount_cents,
       totals.total_cents,

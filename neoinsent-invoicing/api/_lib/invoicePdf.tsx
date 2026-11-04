@@ -52,6 +52,9 @@ const styles = StyleSheet.create({
   clientName: { fontFamily: 'Helvetica-Bold' },
   dates: { width: 190 },
   dateRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  dateLabel: { flexShrink: 0, marginRight: 12 },
+  /** Free text (up to 100 characters) wraps right-aligned beside its label. */
+  dateValueWrapping: { flex: 1, textAlign: 'right' },
   muted: { color: MUTED },
   table: { marginTop: 36 },
   tableHeader: {
@@ -153,6 +156,12 @@ function InvoiceDocument({ model, logoPath }: { model: InvoicePdfModel; logoPath
               <Text style={styles.muted}>{labels.dueDate}</Text>
               <Text>{model.dueDate}</Text>
             </View>
+            {model.servicePeriod && (
+              <View style={styles.dateRow}>
+                <Text style={[styles.muted, styles.dateLabel]}>{labels.servicePeriod}</Text>
+                <Text style={styles.dateValueWrapping}>{model.servicePeriod}</Text>
+              </View>
+            )}
           </View>
         </View>
 

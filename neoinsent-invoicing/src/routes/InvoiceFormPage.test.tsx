@@ -58,6 +58,7 @@ function draftInvoice(overrides: Record<string, unknown> = {}) {
     issue_date: '2026-10-01',
     due_date: '2026-10-15',
     notes: 'Thanks!',
+    service_period: 'September 2026',
     client: NL_CLIENT,
     client_snapshot: null,
     items: [
@@ -169,6 +170,7 @@ describe('InvoiceFormPage — new', () => {
     await userEvent.clear(screen.getByLabelText('Unit price 1'))
     await userEvent.type(screen.getByLabelText('Unit price 1'), '100,50')
     await userEvent.type(screen.getByLabelText('Notes'), 'Thank you')
+    await userEvent.type(screen.getByLabelText('Service date / period (leverdatum)'), '  October 2026 ')
     await userEvent.click(saveButton())
 
     expect(await screen.findByText('Invoice page inv-1')).toBeInTheDocument()
@@ -179,6 +181,7 @@ describe('InvoiceFormPage — new', () => {
       issue_date: todayLocalIso(),
       due_date: addDaysIso(todayLocalIso(), 14),
       notes: 'Thank you',
+      service_period: 'October 2026',
       items: [{ description: 'Consulting', quantity: 1, unit_price: 100.5, vat_rate: 21 }],
     })
   })
@@ -197,6 +200,17 @@ describe('InvoiceFormPage — new', () => {
     const body = bodyOf(fetchMock, 'POST')
     expect(body.language).toBe('en')
     expect(body.notes).toBeNull()
+    expect(body.service_period).toBeNull()
+  })
+
+  it('explains the optional service period field and caps it at 100 characters', async () => {
+    stubFetch(() => undefined)
+    renderAt('/invoices/new')
+    const input = screen.getByLabelText('Service date / period (leverdatum)')
+    expect(input).toHaveAttribute('maxLength', '100')
+    expect(input).toHaveAccessibleDescription(
+      "Optional — e.g. 'October 2026' or '12–16 Oct 2026'. Leave empty if it's the invoice date.",
+    )
   })
 
   it('forces 0% and locks the VAT select for an EU client with a VAT number', async () => {
@@ -331,6 +345,7 @@ describe('InvoiceFormPage — edit', () => {
     expect(screen.getByLabelText('Due date')).toHaveValue('2026-10-15')
     expect(screen.getByLabelText('Invoice language')).toHaveValue('en')
     expect(screen.getByLabelText('Notes')).toHaveValue('Thanks!')
+    expect(screen.getByLabelText('Service date / period (leverdatum)')).toHaveValue('September 2026')
     await waitFor(() => expect(screen.getByLabelText('Client')).toHaveValue('1'))
     expect(screen.queryByText(/VAT details changed/)).not.toBeInTheDocument()
 
@@ -346,6 +361,7 @@ describe('InvoiceFormPage — edit', () => {
       issue_date: '2026-10-01',
       due_date: '2026-10-15',
       notes: 'Thanks!',
+      service_period: 'September 2026',
       items: [
         { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
         { description: 'Manuals', quantity: 1, unit_price: 20, vat_rate: 9 },

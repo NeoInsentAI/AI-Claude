@@ -52,6 +52,7 @@ function draftFor(client: Client, overrides: Partial<DraftInvoiceInput> = {}): D
     issue_date: '2026-11-02',
     due_date: '2026-11-16',
     notes: null,
+    service_period: null,
     items: [
       // 2 x 100.00 = 200.00, 21% VAT 42.00, line total 242.00
       { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
@@ -93,7 +94,15 @@ describe('createDraftInvoice', () => {
       total: 307.37,
       paid: false,
       client_snapshot: null,
+      service_period: null,
     })
+  })
+
+  it('stores and returns the service period', async () => {
+    const created = await createDraftInvoice(draftFor(acme, { service_period: 'October 2026' }))
+
+    expect(created.service_period).toBe('October 2026')
+    expect((await getInvoice(created.id))?.service_period).toBe('October 2026')
   })
 
   it('round-trips totals, lines and the live client through getInvoice', async () => {
@@ -248,6 +257,7 @@ describe('replaceDraftInvoice', () => {
         issue_date: '2026-11-05',
         due_date: '2026-12-05',
         notes: 'Updated',
+        service_period: '12–16 Oct 2026',
         items: [{ description: 'Workshop', quantity: 1.5, unit_price: 80, vat_rate: 21 }],
       }),
     )
@@ -263,6 +273,7 @@ describe('replaceDraftInvoice', () => {
       issue_date: '2026-11-05',
       due_date: '2026-12-05',
       notes: 'Updated',
+      service_period: '12–16 Oct 2026',
       subtotal: 120,
       vat_amount: 25.2,
       total: 145.2,
@@ -278,6 +289,14 @@ describe('replaceDraftInvoice', () => {
         sort_order: 0,
       }),
     ])
+  })
+
+  it('clears the service period when replaced with null', async () => {
+    const { id } = await createDraftInvoice(draftFor(acme, { service_period: 'October 2026' }))
+
+    await replaceDraftInvoice(id, draftFor(acme, { service_period: null }))
+
+    expect((await getInvoice(id))?.service_period).toBeNull()
   })
 
   it("returns 'not_found' for an unknown id", async () => {

@@ -13,8 +13,11 @@ import { DatabaseSync } from 'node:sqlite'
  * quantities are INTEGER hundredths; dates are 'YYYY-MM-DD' TEXT; timestamps ISO TEXT.
  */
 
-/** The columns of a final invoice that may never change (paid, sent_at, pdf_path, updated_at may). */
-const FINAL_INVOICE_LOCKED_COLUMNS = [
+/**
+ * The columns of a final invoice that may never change (paid, sent_at, pdf_path, updated_at may),
+ * as of schema v1. Frozen: v1's trigger is built from it. Later versions extend it.
+ */
+const FINAL_INVOICE_LOCKED_COLUMNS_V1 = [
   'status',
   'invoice_number',
   'client_id',
@@ -30,6 +33,23 @@ const FINAL_INVOICE_LOCKED_COLUMNS = [
   'finalized_at',
   'created_at',
 ]
+
+/** v2 adds service_period (leverdatum), which is part of the legal record too. */
+const FINAL_INVOICE_LOCKED_COLUMNS_V2 = [...FINAL_INVOICE_LOCKED_COLUMNS_V1, 'service_period']
+
+/** The trigger that rejects changes to the locked columns of a final invoice. */
+function finalInvoiceNoUpdateTrigger(lockedColumns: readonly string[]): string {
+  return `
+create trigger invoices_final_no_update
+before update on invoices
+when old.status = 'final' and (
+  ${lockedColumns.map((c) => `old.${c} IS NOT new.${c}`).join('\n  or ')}
+)
+begin
+  select raise(abort, 'final invoices cannot be changed');
+end;
+`
+}
 
 const DATE_GLOB = "'[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'"
 
@@ -102,15 +122,7 @@ begin
   select raise(abort, 'final invoices cannot be deleted');
 end;
 
-create trigger invoices_final_no_update
-before update on invoices
-when old.status = 'final' and (
-  ${FINAL_INVOICE_LOCKED_COLUMNS.map((c) => `old.${c} IS NOT new.${c}`).join('\n  or ')}
-)
-begin
-  select raise(abort, 'final invoices cannot be changed');
-end;
-
+${finalInvoiceNoUpdateTrigger(FINAL_INVOICE_LOCKED_COLUMNS_V1)}
 create trigger invoice_items_final_no_insert
 before insert on invoice_items
 when (select status from invoices where id = new.invoice_id) = 'final'
@@ -138,7 +150,16 @@ end;
  * Schema migrations in order: MIGRATIONS[i] brings the database from user_version i to i + 1.
  * Never edit a migration once a real database has run it — append a new one instead.
  */
-const MIGRATIONS: readonly ((db: DatabaseSync) => void)[] = [(db) => db.exec(SCHEMA_V1)]
+export const MIGRATIONS: readonly ((db: DatabaseSync) => void)[] = [
+  (db) => db.exec(SCHEMA_V1),
+  // v2: optional service period / leverdatum (free text, e.g. 'October 2026'), locked once final.
+  (db) =>
+    db.exec(`
+alter table invoices add column service_period TEXT;
+drop trigger invoices_final_no_update;
+${finalInvoiceNoUpdateTrigger(FINAL_INVOICE_LOCKED_COLUMNS_V2)}
+`),
+]
 
 export function defaultDataDir(): string {
   return path.join(os.homedir(), 'NeoInsent Invoicing')

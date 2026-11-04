@@ -10,6 +10,7 @@ import {
   normalizeRatesForTreatment,
   rowsFromInvoiceItems,
   todayLocalIso,
+  trimmedOrNull,
   type ApiInvoiceItem,
 } from '../lib/invoiceForm'
 import { determineVatTreatment, type VatTreatment } from '../lib/vat'
@@ -25,6 +26,7 @@ interface LoadedInvoice {
   issue_date: string
   due_date: string
   notes: string | null
+  service_period: string | null
   /** The live client row. */
   client: ClientSummary | null
   items: ApiInvoiceItem[]
@@ -64,6 +66,7 @@ export function InvoiceFormPage({ mode }: Props) {
   const [dueDate, setDueDate] = useState(() => addDaysIso(todayLocalIso(), 14))
   const [language, setLanguage] = useState<Language | null>(null)
   const [notes, setNotes] = useState('')
+  const [servicePeriod, setServicePeriod] = useState('')
   const [rows, setRows] = useState<LineItemRow[]>([])
   const [notice, setNotice] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -100,6 +103,7 @@ export function InvoiceFormPage({ mode }: Props) {
         setDueDate(invoice.due_date)
         setLanguage(invoice.language)
         setNotes(invoice.notes ?? '')
+        setServicePeriod(invoice.service_period ?? '')
         setLoading(false)
       })
       .catch((err: unknown) => {
@@ -140,6 +144,7 @@ export function InvoiceFormPage({ mode }: Props) {
       issue_date: issueDate,
       due_date: dueDate,
       notes: notes.trim() === '' ? null : notes,
+      service_period: trimmedOrNull(servicePeriod),
       items: itemsForApi(rows),
     })
     try {
@@ -231,6 +236,19 @@ export function InvoiceFormPage({ mode }: Props) {
         </select>
         <p id="invoice-language-hint" style={{ color: 'var(--ink-soft)', fontSize: '0.85rem', marginTop: 4 }}>
           Used for the PDF and the email to the client.
+        </p>
+
+        <label htmlFor="service-period">Service date / period (leverdatum)</label>
+        <input
+          id="service-period"
+          type="text"
+          maxLength={100}
+          aria-describedby="service-period-hint"
+          value={servicePeriod}
+          onChange={(e) => setServicePeriod(e.target.value)}
+        />
+        <p id="service-period-hint" style={{ color: 'var(--ink-soft)', fontSize: '0.85rem', marginTop: 4 }}>
+          Optional — e.g. &apos;October 2026&apos; or &apos;12–16 Oct 2026&apos;. Leave empty if it&apos;s the invoice date.
         </p>
 
         <label htmlFor="invoice-notes">Notes</label>

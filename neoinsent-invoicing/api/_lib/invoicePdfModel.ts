@@ -13,6 +13,8 @@ export interface InvoicePdfInput {
   issueDate: string
   /** YYYY-MM-DD */
   dueDate: string
+  /** Date or period of supply (leverdatum) when it differs from the issue date; free text. */
+  servicePeriod: string | null
   notes: string | null
   /** For a final invoice this is the client snapshot (see clientForInvoice). */
   client: ClientDetails
@@ -34,6 +36,7 @@ export interface InvoicePdfLabels {
   billTo: string
   issueDate: string
   dueDate: string
+  servicePeriod: string
   description: string
   quantity: string
   unitPrice: string
@@ -73,6 +76,8 @@ export interface InvoicePdfModel {
   invoiceNumber: string
   issueDate: string
   dueDate: string
+  /** Printed as an extra row in the dates block only when set. */
+  servicePeriod: string | null
   client: {
     name: string
     /** Contact person, address, country and registration numbers, one printed line each. */
@@ -95,6 +100,7 @@ const LABELS: Record<'nl' | 'en', InvoicePdfLabels> = {
     billTo: 'Factuur aan',
     issueDate: 'Factuurdatum',
     dueDate: 'Vervaldatum',
+    servicePeriod: 'Leverdatum / periode',
     description: 'Omschrijving',
     quantity: 'Aantal',
     unitPrice: 'Prijs excl. btw',
@@ -111,6 +117,7 @@ const LABELS: Record<'nl' | 'en', InvoicePdfLabels> = {
     billTo: 'Bill to',
     issueDate: 'Invoice date',
     dueDate: 'Due date',
+    servicePeriod: 'Service date / period',
     description: 'Description',
     quantity: 'Qty',
     unitPrice: 'Unit price excl. VAT',
@@ -281,6 +288,7 @@ export function buildInvoicePdfModel(input: InvoicePdfInput): InvoicePdfModel {
     invoiceNumber: input.invoiceNumber,
     issueDate: formatDate(input.issueDate),
     dueDate: formatDate(input.dueDate),
+    servicePeriod: input.servicePeriod?.trim() || null,
     client: { name: client.name, lines: clientLines },
     lines,
     vatBreakdown,

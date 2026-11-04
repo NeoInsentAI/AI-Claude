@@ -33,6 +33,12 @@ export function addDaysIso(iso: string, days: number): string {
   return isoFromLocalDate(new Date(y, m - 1, d + days))
 }
 
+/** An optional text field for the API: trimmed, and null when left empty. */
+export function trimmedOrNull(value: string): string | null {
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
+
 export function rowsFromInvoiceItems(items: ApiInvoiceItem[]): LineItemRow[] {
   return items.map((item) => ({
     key: crypto.randomUUID(),

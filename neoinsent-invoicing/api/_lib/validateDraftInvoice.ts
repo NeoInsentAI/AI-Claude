@@ -11,6 +11,7 @@ const MAX_ITEMS = 100
 const ALLOWED_VAT_RATES = [0, 9, 21]
 const MAX_DESCRIPTION_LENGTH = 500
 const MAX_NOTES_LENGTH = 2000
+const MAX_SERVICE_PERIOD_LENGTH = 100
 // Money/quantities are stored as integer cents/hundredths, which would silently
 // round a third decimal while line_total was computed from the unrounded
 // value, so the stored line wouldn't add up. Reject instead.
@@ -129,6 +130,17 @@ export function validateDraftInvoice(body: unknown): ValidateDraftInvoiceResult 
     return { ok: false, error: `Notes can be at most ${MAX_NOTES_LENGTH} characters` }
   }
 
+  const servicePeriod =
+    typeof input.service_period === 'string' && input.service_period.trim() !== ''
+      ? input.service_period.trim()
+      : null
+  if (servicePeriod !== null && servicePeriod.length > MAX_SERVICE_PERIOD_LENGTH) {
+    return {
+      ok: false,
+      error: `Service period can be at most ${MAX_SERVICE_PERIOD_LENGTH} characters`,
+    }
+  }
+
   const rawItems = input.items
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { ok: false, error: 'At least one line item is required' }
@@ -157,6 +169,7 @@ export function validateDraftInvoice(body: unknown): ValidateDraftInvoiceResult 
       issue_date: issueDate,
       due_date: dueDate,
       notes,
+      service_period: servicePeriod,
       items,
     },
   }

@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type { DatabaseSync } from 'node:sqlite'
+import { DatabaseSync } from 'node:sqlite'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   backupDb,
@@ -12,6 +12,7 @@ import {
   getDataDir,
   getDb,
   getInvoicesDir,
+  MIGRATIONS,
   nextInvoiceNumber,
   openDb,
   rotateBackups,
@@ -172,18 +173,45 @@ describe('data dir', () => {
 })
 
 describe('openDb schema', () => {
-  it('creates all four tables and sets user_version 1', () => {
+  it('creates all four tables and sets user_version 2', () => {
     expect(tableNames(db)).toEqual(
       expect.arrayContaining(['clients', 'invoices', 'invoice_items', 'invoice_counters']),
     )
-    expect(userVersion(db)).toBe(1)
+    expect(userVersion(db)).toBe(2)
+  })
+
+  it('upgrades a v1 database to v2, keeping its rows and adding service_period', () => {
+    const file = path.join(tmpDir, 'v1.db')
+    const v1 = new DatabaseSync(file)
+    MIGRATIONS[0](v1)
+    v1.exec('pragma user_version = 1')
+    v1.prepare(
+      `insert into clients (id, name, email, address_line, postal_code, city, country, created_at)
+       values ('c1', 'Acme', 'a@acme.nl', 'Straat 1', '1000 AA', 'Amsterdam', 'NL', ?)`,
+    ).run(now)
+    v1.prepare(
+      `insert into invoices (id, client_id, language, vat_treatment, issue_date, due_date, created_at)
+       values ('i1', 'c1', 'nl', 'nl_standard', '2026-11-03', '2026-12-03', ?)`,
+    ).run(now)
+    v1.close()
+
+    const upgraded = openDb(file)
+    try {
+      expect(userVersion(upgraded)).toBe(2)
+      expect(upgraded.prepare('select id, service_period from invoices').all()).toEqual([
+        { id: 'i1', service_period: null },
+      ])
+      expect(upgraded.prepare('select id from clients').all()).toEqual([{ id: 'c1' }])
+    } finally {
+      upgraded.close()
+    }
   })
 
   it('is idempotent when reopening the same file', () => {
     const clientId = insertClient()
     db.close()
     db = openDb(path.join(tmpDir, 'test.db'))
-    expect(userVersion(db)).toBe(1)
+    expect(userVersion(db)).toBe(2)
     expect(db.prepare('select id from clients').all()).toEqual([{ id: clientId }])
   })
 
@@ -321,6 +349,7 @@ describe('final invoices are immutable', () => {
       `status = 'draft'`,
       `notes = 'changed'`,
       `finalized_at = null`,
+      `service_period = 'October 2026'`,
     ]
     for (const set of attempts) {
       expect(() => db.prepare(`update invoices set ${set} where id = ?`).run(invoiceId), set).toThrow(
@@ -368,7 +397,12 @@ describe('final invoices are immutable', () => {
     insertItem(draftId, 1)
     db.prepare(`update invoice_items set unit_price_cents = 1 where id = ?`).run(itemId)
     db.prepare(`delete from invoice_items where id = ?`).run(itemId)
-    db.prepare(`update invoices set total_cents = 42, notes = 'x' where id = ?`).run(draftId)
+    db.prepare(
+      `update invoices set total_cents = 42, notes = 'x', service_period = 'October 2026' where id = ?`,
+    ).run(draftId)
+    expect(db.prepare('select service_period from invoices where id = ?').get(draftId)).toEqual({
+      service_period: 'October 2026',
+    })
     db.prepare('delete from invoices where id = ?').run(draftId)
     expect(db.prepare('select * from invoice_items').all()).toEqual([])
   })

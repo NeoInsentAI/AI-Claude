@@ -2,6 +2,7 @@
 //
 // Plain Node environment (not the project-wide jsdom): @react-pdf/renderer resolves a
 // browser-targeted build when a `window` global exists, which breaks server-side rendering.
+import { inflateSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_LOGO_PATH, renderInvoicePdf } from './invoicePdf'
 import { buildInvoicePdfModel, type InvoicePdfInput } from './invoicePdfModel'
@@ -13,6 +14,7 @@ const NL_INPUT: InvoicePdfInput = {
   issueDate: '2026-11-02',
   dueDate: '2026-11-16',
   notes: 'Bedankt voor de prettige samenwerking.',
+  servicePeriod: null,
   client: {
     name: 'Acme BV',
     contact_person: 'Jan de Vries',
@@ -40,6 +42,7 @@ const EN_RC_INPUT: InvoicePdfInput = {
   issueDate: '2026-11-02',
   dueDate: '2026-12-02',
   notes: null,
+  servicePeriod: null,
   client: {
     name: 'Beispiel GmbH',
     contact_person: null,
@@ -62,6 +65,28 @@ function expectPdf(buffer: Buffer) {
   expect(buffer.length).toBeGreaterThan(1000)
 }
 
+/**
+ * The text runs drawn in the PDF, one per TJ operator. The standard Helvetica font is written as
+ * hex-encoded WinAnsi strings in deflated content streams.
+ */
+function textRuns(buffer: Buffer): string[] {
+  const runs: string[] = []
+  const pdf = buffer.toString('latin1')
+  for (const [, raw] of pdf.matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {
+    let content: string
+    try {
+      content = inflateSync(Buffer.from(raw, 'latin1')).toString('latin1')
+    } catch {
+      continue // not a deflated content stream (e.g. an image)
+    }
+    for (const [, array] of content.matchAll(/\[([^\]]*)\]\s*TJ/g)) {
+      const hex = [...array.matchAll(/<([0-9a-fA-F]*)>/g)].map((m) => m[1]).join('')
+      runs.push(Buffer.from(hex, 'hex').toString('latin1'))
+    }
+  }
+  return runs
+}
+
 function pageCount(buffer: Buffer): number {
   return buffer.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0
 }
@@ -78,6 +103,21 @@ describe('renderInvoicePdf', () => {
 
   it('renders a valid PDF for an EU reverse-charge, English-language invoice', async () => {
     expectPdf(await renderInvoicePdf(buildInvoicePdfModel(EN_RC_INPUT)))
+  })
+
+  it('prints the service period row in the dates block when it is set', async () => {
+    const runs = textRuns(
+      await renderInvoicePdf(buildInvoicePdfModel({ ...NL_INPUT, servicePeriod: 'Oktober 2026' })),
+    )
+    expect(runs).toContain('Factuurdatum') // sanity check of the text extraction
+    expect(runs).toContain('Leverdatum / periode')
+    expect(runs).toContain('Oktober 2026')
+  })
+
+  it('prints no service period row when it is null', async () => {
+    const runs = textRuns(await renderInvoicePdf(buildInvoicePdfModel(NL_INPUT)))
+    expect(runs).toContain('Factuurdatum')
+    expect(runs.some((run) => run.includes('Leverdatum'))).toBe(false)
   })
 
   it('renders 60 lines with long descriptions across several pages', async () => {

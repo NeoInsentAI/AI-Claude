@@ -23,6 +23,7 @@ const NL_INPUT: InvoicePdfInput = {
   issueDate: '2026-11-02',
   dueDate: '2026-11-16',
   notes: 'Bedankt!',
+  servicePeriod: 'Oktober 2026',
   client: NL_CLIENT,
   items: [
     { description: 'Consultancy', quantity: 10, unit_price: 100, vat_rate: 21, line_total: 1210 },
@@ -41,6 +42,7 @@ const EN_RC_INPUT: InvoicePdfInput = {
   issueDate: '2026-01-05',
   dueDate: '2026-02-04',
   notes: null,
+  servicePeriod: null,
   client: {
     name: 'Beispiel GmbH',
     contact_person: null,
@@ -94,6 +96,20 @@ describe('buildInvoicePdfModel', () => {
     expect(model.totals.vatTotal).toMatch(/232,90/)
     expect(model.totals.total).toMatch(/1\.376,20/)
     expect(model.vatBreakdown[0].label).toMatch(/^Btw 21% over €\s1\.083,33$/)
+  })
+
+  it('carries the service period (leverdatum) with a bilingual label', () => {
+    const nl = buildInvoicePdfModel(NL_INPUT)
+    expect(nl.servicePeriod).toBe('Oktober 2026')
+    expect(nl.labels.servicePeriod).toBe('Leverdatum / periode')
+    const en = buildInvoicePdfModel({ ...EN_RC_INPUT, servicePeriod: '12–16 Oct 2026' })
+    expect(en.servicePeriod).toBe('12–16 Oct 2026')
+    expect(en.labels.servicePeriod).toBe('Service date / period')
+  })
+
+  it('leaves the service period out when it is null or blank', () => {
+    expect(buildInvoicePdfModel(EN_RC_INPUT).servicePeriod).toBeNull()
+    expect(buildInvoicePdfModel({ ...NL_INPUT, servicePeriod: '   ' }).servicePeriod).toBeNull()
   })
 
   it('formats dates as DD-MM-YYYY', () => {

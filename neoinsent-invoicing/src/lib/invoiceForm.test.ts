@@ -7,6 +7,7 @@ import {
   normalizeRatesForTreatment,
   rowsFromInvoiceItems,
   todayLocalIso,
+  trimmedOrNull,
   type InvoiceFormState,
 } from './invoiceForm'
 
@@ -49,6 +50,14 @@ const ROWS: LineItemRow[] = [
   { key: 'a', description: 'Consulting', quantity: 2, unitPrice: 100, vatRate: 21 },
   { key: 'b', description: 'Books', quantity: 1, unitPrice: 25.5, vatRate: 9 },
 ]
+
+describe('trimmedOrNull', () => {
+  it('trims text and turns empty or blank text into null', () => {
+    expect(trimmedOrNull('  October 2026 ')).toBe('October 2026')
+    expect(trimmedOrNull('')).toBeNull()
+    expect(trimmedOrNull('   ')).toBeNull()
+  })
+})
 
 describe('rowsFromInvoiceItems / itemsForApi', () => {
   it('maps snake_case items to editor rows with keys', () => {

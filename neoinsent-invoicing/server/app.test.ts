@@ -120,6 +120,21 @@ describe('API through the real database', () => {
     ])
   })
 
+  it('stores the service period (leverdatum) of a draft and GET returns it', async () => {
+    const server = app()
+    const client = await createAcme(server)
+    const created = await request(server)
+      .post('/api/invoices')
+      .set('Host', HOST)
+      .send({ ...draftBody(client.id), service_period: 'October 2026' })
+    expect(created.status).toBe(201)
+    expect(created.body.invoice.service_period).toBe('October 2026')
+
+    const res = await request(server).get(`/api/invoices/${created.body.invoice.id}`).set('Host', HOST)
+    expect(res.status).toBe(200)
+    expect(res.body.invoice.service_period).toBe('October 2026')
+  })
+
   it('GET /api/invoices/:id answers 404 for an unknown invoice', async () => {
     const res = await request(app())
       .get('/api/invoices/7c9e6679-7425-40de-944b-e07fc1f90ae7')

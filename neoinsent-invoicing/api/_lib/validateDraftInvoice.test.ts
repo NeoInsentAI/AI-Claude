@@ -11,6 +11,7 @@ function validBody(overrides: Record<string, unknown> = {}) {
     issue_date: '2026-11-02',
     due_date: '2026-11-16',
     notes: '  Thanks!  ',
+    service_period: '  October 2026  ',
     items: [{ description: ' Consulting ', quantity: 2, unit_price: 100, vat_rate: 21 }],
     ...overrides,
   }
@@ -38,6 +39,7 @@ describe('validateDraftInvoice', () => {
         issue_date: '2026-11-02',
         due_date: '2026-11-16',
         notes: 'Thanks!',
+        service_period: 'October 2026',
         items: [{ description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 }],
       },
     })
@@ -210,6 +212,22 @@ describe('validateDraftInvoice', () => {
     expectError(
       validBody({ items: [item({ description: 'a'.repeat(501) })] }),
       /^Line 1: description can be at most 500 characters$/,
+    )
+  })
+
+  it('turns a missing, non-string, or blank service period into null', () => {
+    for (const service_period of [undefined, null, 5, '   ']) {
+      const result = validateDraftInvoice(validBody({ service_period }))
+      expect(result.ok && result.value.service_period).toBeNull()
+    }
+  })
+
+  it('caps the service period at 100 characters after trimming', () => {
+    const ok = validateDraftInvoice(validBody({ service_period: ` ${'a'.repeat(100)} ` }))
+    expect(ok.ok && ok.value.service_period).toBe('a'.repeat(100))
+    expectError(
+      validBody({ service_period: 'a'.repeat(101) }),
+      /^Service period can be at most 100 characters$/,
     )
   })
 
