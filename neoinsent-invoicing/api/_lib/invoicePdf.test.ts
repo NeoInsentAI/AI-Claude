@@ -15,6 +15,7 @@ const NL_INPUT: InvoicePdfInput = {
   dueDate: '2026-11-16',
   notes: 'Bedankt voor de prettige samenwerking.',
   servicePeriod: null,
+  vatNote: null,
   client: {
     name: 'Acme BV',
     contact_person: 'Jan de Vries',
@@ -43,6 +44,7 @@ const EN_RC_INPUT: InvoicePdfInput = {
   dueDate: '2026-12-02',
   notes: null,
   servicePeriod: null,
+  vatNote: null,
   client: {
     name: 'Beispiel GmbH',
     contact_person: null,
@@ -113,6 +115,23 @@ describe('renderInvoicePdf', () => {
     expect(runs).toContain('Factuurdatum') // sanity check of the text extraction
     expect(runs).toContain('Leverdatum / periode')
     expect(runs).toContain('Oktober 2026')
+  })
+
+  it('prints the VAT note with its label when it is set', async () => {
+    const runs = textRuns(
+      await renderInvoicePdf(
+        buildInvoicePdfModel({
+          ...NL_INPUT,
+          vatNote: 'Vrijgesteld',
+          items: [{ description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0, line_total: 50 }],
+          subtotal: 50,
+          vatAmount: 0,
+          total: 50,
+        }),
+      ),
+    )
+    expect(runs).toContain('Btw-toelichting')
+    expect(runs).toContain('Vrijgesteld')
   })
 
   it('prints no service period row when it is null', async () => {

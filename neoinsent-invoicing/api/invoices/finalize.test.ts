@@ -68,7 +68,7 @@ const acme = {
   vat_number: 'NL123456789B01',
 }
 
-async function createDraft(server: express.Express) {
+async function createDraft(server: express.Express, overrides: Record<string, unknown> = {}) {
   const client = await request(server).post('/api/clients').set('Host', HOST).send(acme)
   expect(client.status).toBe(201)
   const draft = await request(server)
@@ -81,6 +81,7 @@ async function createDraft(server: express.Express) {
       issue_date: '2026-11-02',
       due_date: '2026-11-16',
       items: [{ description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 }],
+      ...overrides,
     })
   expect(draft.status).toBe(201)
   return { clientId: client.body.client.id as string, invoiceId: draft.body.invoice.id as string }
@@ -125,6 +126,35 @@ describe('POST /api/invoices/:id/finalize', () => {
     const pdf = fs.readFileSync(path.join(dataDir, res.body.invoice.pdf_path))
     expect(pdf.subarray(0, 4).toString('latin1')).toBe('%PDF')
     expect(preFinalizeBackups()).toHaveLength(1)
+  })
+
+  it('answers 422 for a Dutch invoice with a 0% line but no VAT note, and issues nothing', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server, {
+      items: [{ description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0 }],
+    })
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(422)
+    expect(res.body).toEqual({
+      error: 'Add a VAT note explaining why a line has 0% VAT (e.g. the legal basis) — edit the draft to add it.',
+    })
+    expect(counter()).toBeNull()
+    expect(getDb().prepare('select status from invoices where id = ?').get(invoiceId)).toEqual({ status: 'draft' })
+  })
+
+  it('finalizes a Dutch invoice with a 0% line once it has a VAT note', async () => {
+    const server = app()
+    const { invoiceId } = await createDraft(server, {
+      vat_note: 'Vrijgesteld van btw',
+      items: [{ description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0 }],
+    })
+
+    const res = await finalize(server, invoiceId)
+
+    expect(res.status).toBe(200)
+    expect(res.body.invoice).toMatchObject({ status: 'final', vat_note: 'Vrijgesteld van btw' })
   })
 
   it('answers 409 when the invoice is already final', async () => {

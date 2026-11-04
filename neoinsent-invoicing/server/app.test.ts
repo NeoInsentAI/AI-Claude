@@ -136,6 +136,27 @@ describe('API through the real database', () => {
     expect(res.body.invoice.service_period).toBe('October 2026')
   })
 
+  it('stores the VAT note of a Dutch draft, PATCH replaces it and GET returns it', async () => {
+    const server = app()
+    const client = await createAcme(server)
+    const zero = [{ description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0 }]
+    const created = await request(server)
+      .post('/api/invoices')
+      .set('Host', HOST)
+      .send({ ...draftBody(client.id), items: zero, vat_note: 'Vrijgesteld van btw' })
+    expect(created.status).toBe(201)
+    expect(created.body.invoice.vat_note).toBe('Vrijgesteld van btw')
+
+    const patched = await request(server)
+      .patch(`/api/invoices/${created.body.invoice.id}`)
+      .set('Host', HOST)
+      .send({ ...draftBody(client.id), items: zero, vat_note: 'Art. 11 Wet OB' })
+    expect(patched.status).toBe(200)
+
+    const res = await request(server).get(`/api/invoices/${created.body.invoice.id}`).set('Host', HOST)
+    expect(res.body.invoice.vat_note).toBe('Art. 11 Wet OB')
+  })
+
   it('GET /api/invoices/:id answers 404 for an unknown invoice', async () => {
     const res = await request(app())
       .get('/api/invoices/7c9e6679-7425-40de-944b-e07fc1f90ae7')

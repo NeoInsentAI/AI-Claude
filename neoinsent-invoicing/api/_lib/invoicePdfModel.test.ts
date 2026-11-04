@@ -24,6 +24,7 @@ const NL_INPUT: InvoicePdfInput = {
   dueDate: '2026-11-16',
   notes: 'Bedankt!',
   servicePeriod: 'Oktober 2026',
+  vatNote: null,
   client: NL_CLIENT,
   items: [
     { description: 'Consultancy', quantity: 10, unit_price: 100, vat_rate: 21, line_total: 1210 },
@@ -43,6 +44,7 @@ const EN_RC_INPUT: InvoicePdfInput = {
   dueDate: '2026-02-04',
   notes: null,
   servicePeriod: null,
+  vatNote: null,
   client: {
     name: 'Beispiel GmbH',
     contact_person: null,
@@ -163,6 +165,37 @@ describe('buildInvoicePdfModel', () => {
     const model = buildInvoicePdfModel({ ...EN_RC_INPUT, language: 'nl' })
     expect(model.reverseCharge?.note).toBe('Btw verlegd naar de afnemer')
     expect(model.reverseCharge?.clientVatNumber).toBe('Btw-nummer afnemer: DE123456789')
+  })
+
+  it('prints the VAT note on a Dutch invoice with a 0% line, labelled in the invoice language', () => {
+    const input: InvoicePdfInput = {
+      ...NL_INPUT,
+      vatNote: '  Vrijgesteld van btw (art. 11 Wet OB)  ',
+      items: [...NL_INPUT.items, { description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0, line_total: 50 }],
+      subtotal: 1193.3,
+      total: 1426.2,
+    }
+    const nl = buildInvoicePdfModel(input)
+    expect(nl.vatNote).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
+    expect(nl.labels.vatNote).toBe('Btw-toelichting')
+    expect(buildInvoicePdfModel({ ...input, language: 'en' }).labels.vatNote).toBe('VAT note')
+  })
+
+  it('has no VAT note when none was given, and never on a reverse-charge invoice', () => {
+    expect(buildInvoicePdfModel(NL_INPUT).vatNote).toBeNull()
+    expect(buildInvoicePdfModel({ ...NL_INPUT, vatNote: '   ' }).vatNote).toBeNull()
+    expect(buildInvoicePdfModel({ ...EN_RC_INPUT, vatNote: 'stray' }).vatNote).toBeNull()
+  })
+
+  it('still builds an older Dutch invoice with a 0% line and no VAT note (PDF re-creation)', () => {
+    const model = buildInvoicePdfModel({
+      ...NL_INPUT,
+      items: [{ description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0, line_total: 50 }],
+      subtotal: 50,
+      vatAmount: 0,
+      total: 50,
+    })
+    expect(model.vatNote).toBeNull()
   })
 
   it('has no reverse-charge note on a standard Dutch invoice', () => {

@@ -65,6 +65,7 @@ function draftFor(client: Client, items: DraftInvoiceInput['items'], overrides: 
     due_date: '2026-01-15',
     notes: null,
     service_period: null,
+    vat_note: null,
     items,
     ...overrides,
   } satisfies DraftInvoiceInput
@@ -176,7 +177,7 @@ describe('summaryForPeriod', () => {
       draftFor(acme, [
         { description: 'Consulting', quantity: 1, unit_price: 100, vat_rate: 21 },
         { description: 'Exempt', quantity: 1, unit_price: 40, vat_rate: 0 },
-      ]),
+      ], { vat_note: 'Vrijgesteld van btw' }),
       new Date(2026, 1, 10, 9, 0),
     )
     await issue(

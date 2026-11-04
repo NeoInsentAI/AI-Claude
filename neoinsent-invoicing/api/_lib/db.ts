@@ -38,6 +38,9 @@ const FINAL_INVOICE_LOCKED_COLUMNS_V1 = [
 /** v2 adds service_period (leverdatum), which is part of the legal record too. */
 const FINAL_INVOICE_LOCKED_COLUMNS_V2 = [...FINAL_INVOICE_LOCKED_COLUMNS_V1, 'service_period']
 
+/** v3 adds vat_note (why a domestic line has 0% VAT), printed on the invoice, so locked too. */
+const FINAL_INVOICE_LOCKED_COLUMNS_V3 = [...FINAL_INVOICE_LOCKED_COLUMNS_V2, 'vat_note']
+
 /**
  * The only `invoices` columns that may still change once an invoice is final. Every other column
  * is locked by the invoices_final_no_update trigger (`id` is the primary key, protected by the
@@ -167,6 +170,14 @@ export const MIGRATIONS: readonly ((db: DatabaseSync) => void)[] = [
 alter table invoices add column service_period TEXT;
 drop trigger invoices_final_no_update;
 ${finalInvoiceNoUpdateTrigger(FINAL_INVOICE_LOCKED_COLUMNS_V2)}
+`),
+  // v3: optional VAT note (free text, e.g. the legal basis for a 0% line on a Dutch invoice),
+  // printed on the invoice and locked once final.
+  (db) =>
+    db.exec(`
+alter table invoices add column vat_note TEXT;
+drop trigger invoices_final_no_update;
+${finalInvoiceNoUpdateTrigger(FINAL_INVOICE_LOCKED_COLUMNS_V3)}
 `),
 ]
 

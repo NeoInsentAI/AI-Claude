@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   EU_COUNTRY_CODES,
+  needsVatNote,
   determineVatTreatment,
   isInvoiceVatTreatment,
   isPlausibleVatNumber,
@@ -146,5 +147,23 @@ describe('determineVatTreatment', () => {
       treatment: 'not_supported',
       defaultRate: null,
     })
+  })
+})
+
+describe('needsVatNote', () => {
+  it('is true for a Dutch invoice with at least one 0% line', () => {
+    expect(needsVatNote('nl_standard', [21, 0])).toBe(true)
+    expect(needsVatNote('nl_standard', [0])).toBe(true)
+  })
+
+  it('is false for a Dutch invoice without 0% lines', () => {
+    expect(needsVatNote('nl_standard', [21, 9])).toBe(false)
+    expect(needsVatNote('nl_standard', [])).toBe(false)
+  })
+
+  it('is false for reverse charge (the reverse-charge note already explains it) and other treatments', () => {
+    expect(needsVatNote('eu_reverse_charge', [0])).toBe(false)
+    expect(needsVatNote('not_supported', [0])).toBe(false)
+    expect(needsVatNote(null, [0])).toBe(false)
   })
 })

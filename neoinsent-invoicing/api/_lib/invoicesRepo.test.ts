@@ -53,6 +53,7 @@ function draftFor(client: Client, overrides: Partial<DraftInvoiceInput> = {}): D
     due_date: '2026-11-16',
     notes: null,
     service_period: null,
+    vat_note: null,
     items: [
       // 2 x 100.00 = 200.00, 21% VAT 42.00, line total 242.00
       { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
@@ -95,7 +96,20 @@ describe('createDraftInvoice', () => {
       paid: false,
       client_snapshot: null,
       service_period: null,
+      vat_note: null,
     })
+  })
+
+  it('stores and returns the VAT note', async () => {
+    const created = await createDraftInvoice(
+      draftFor(acme, {
+        vat_note: 'Vrijgesteld van btw (art. 11 Wet OB)',
+        items: [{ description: 'Training', quantity: 1, unit_price: 100, vat_rate: 0 }],
+      }),
+    )
+
+    expect(created.vat_note).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
+    expect((await getInvoice(created.id))?.vat_note).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
   })
 
   it('stores and returns the service period', async () => {
@@ -282,6 +296,7 @@ describe('replaceDraftInvoice', () => {
         due_date: '2026-12-05',
         notes: 'Updated',
         service_period: '12–16 Oct 2026',
+        vat_note: 'Updated note',
         items: [{ description: 'Workshop', quantity: 1.5, unit_price: 80, vat_rate: 21 }],
       }),
     )
@@ -298,6 +313,7 @@ describe('replaceDraftInvoice', () => {
       due_date: '2026-12-05',
       notes: 'Updated',
       service_period: '12–16 Oct 2026',
+      vat_note: 'Updated note',
       subtotal: 120,
       vat_amount: 25.2,
       total: 145.2,

@@ -131,7 +131,22 @@ function createV1Db(file: string): void {
   v1.close()
 }
 
-const PRE_MIGRATION_FILE = /^pre-migration-v1-to-v2-\d{8}-\d{6}(-\d+)?\.db$/
+/** Creates a v2 database file (schema v2, one client and one FINAL invoice) at `file`. */
+function createV2Db(file: string): void {
+  createV1Db(file)
+  const v2 = new DatabaseSync(file)
+  MIGRATIONS[1](v2)
+  v2.exec('pragma user_version = 2')
+  v2.prepare(
+    `insert into invoices (id, invoice_number, client_id, status, language, vat_treatment, issue_date,
+       due_date, client_snapshot, created_at, finalized_at, service_period)
+     values ('f1', 'NEO-2026-0001', 'c1', 'final', 'nl', 'nl_standard', '2026-11-03', '2026-12-03',
+       '{}', ?, ?, 'October 2026')`,
+  ).run(now, now)
+  v2.close()
+}
+
+const PRE_MIGRATION_FILE = /^pre-migration-v1-to-v3-\d{8}-\d{6}(-\d+)?\.db$/
 
 function preMigrationBackups(dir: string): string[] {
   const backups = path.join(dir, 'backups')
@@ -198,22 +213,22 @@ describe('data dir', () => {
 })
 
 describe('openDb schema', () => {
-  it('creates all four tables and sets user_version 2', () => {
+  it('creates all four tables and sets user_version 3', () => {
     expect(tableNames(db)).toEqual(
       expect.arrayContaining(['clients', 'invoices', 'invoice_items', 'invoice_counters']),
     )
-    expect(userVersion(db)).toBe(2)
+    expect(userVersion(db)).toBe(3)
   })
 
-  it('upgrades a v1 database to v2, keeping its rows and adding service_period', () => {
+  it('upgrades a v1 database to v3, keeping its rows and adding service_period and vat_note', () => {
     const file = path.join(tmpDir, 'v1.db')
     createV1Db(file)
 
     const upgraded = openDb(file)
     try {
-      expect(userVersion(upgraded)).toBe(2)
-      expect(upgraded.prepare('select id, service_period from invoices').all()).toEqual([
-        { id: 'i1', service_period: null },
+      expect(userVersion(upgraded)).toBe(3)
+      expect(upgraded.prepare('select id, service_period, vat_note from invoices').all()).toEqual([
+        { id: 'i1', service_period: null, vat_note: null },
       ])
       expect(upgraded.prepare('select id from clients').all()).toEqual([{ id: 'c1' }])
     } finally {
@@ -221,7 +236,48 @@ describe('openDb schema', () => {
     }
   })
 
-  it('backs up a v1 database to backups/pre-migration-v1-to-v2-<timestamp>.db before migrating', () => {
+  it('upgrades a v2 database to v3: vat_note is null and locked on its final invoices', () => {
+    const dir = path.join(tmpDir, 'upgrade-v2')
+    fs.mkdirSync(dir)
+    const file = path.join(dir, 'neoinsent.db')
+    createV2Db(file)
+
+    const upgraded = openDb(file)
+    try {
+      expect(userVersion(upgraded)).toBe(3)
+      expect(
+        upgraded.prepare(`select id, service_period, vat_note from invoices where id = 'f1'`).get(),
+      ).toEqual({ id: 'f1', service_period: 'October 2026', vat_note: null })
+      expect(() =>
+        upgraded.prepare(`update invoices set vat_note = 'Vrijgesteld' where id = 'f1'`).run(),
+      ).toThrow(/final invoices cannot be changed/)
+      // Columns locked by earlier versions stay locked by the recreated trigger.
+      expect(() =>
+        upgraded.prepare(`update invoices set service_period = 'x' where id = 'f1'`).run(),
+      ).toThrow(/final invoices cannot be changed/)
+      // The draft is still editable.
+      upgraded.prepare(`update invoices set vat_note = 'Vrijgesteld' where id = 'i1'`).run()
+    } finally {
+      upgraded.close()
+    }
+
+    const backups = preMigrationBackups(dir)
+    expect(backups).toHaveLength(1)
+    expect(backups[0]).toMatch(/^pre-migration-v2-to-v3-\d{8}-\d{6}(-\d+)?\.db$/)
+    const copy = new DatabaseSync(path.join(dir, 'backups', backups[0]), { readOnly: true })
+    try {
+      expect(userVersion(copy)).toBe(2)
+      const cols = (copy.prepare('pragma table_info(invoices)').all() as { name: string }[]).map(
+        (c) => c.name,
+      )
+      expect(cols).toContain('service_period')
+      expect(cols).not.toContain('vat_note')
+    } finally {
+      copy.close()
+    }
+  })
+
+  it('backs up a v1 database to backups/pre-migration-v1-to-v3-<timestamp>.db before migrating', () => {
     const dir = path.join(tmpDir, 'upgrade')
     fs.mkdirSync(dir)
     const file = path.join(dir, 'neoinsent.db')
@@ -265,7 +321,7 @@ describe('openDb schema', () => {
     const clientId = insertClient()
     db.close()
     db = openDb(path.join(tmpDir, 'test.db'))
-    expect(userVersion(db)).toBe(2)
+    expect(userVersion(db)).toBe(3)
     expect(db.prepare('select id from clients').all()).toEqual([{ id: clientId }])
   })
 
@@ -404,6 +460,7 @@ describe('final invoices are immutable', () => {
       `notes = 'changed'`,
       `finalized_at = null`,
       `service_period = 'October 2026'`,
+      `vat_note = 'Vrijgesteld van btw'`,
     ]
     for (const set of attempts) {
       expect(() => db.prepare(`update invoices set ${set} where id = ?`).run(invoiceId), set).toThrow(
@@ -449,6 +506,7 @@ describe('final invoices are immutable', () => {
       updated_at: later,
       finalized_at: later,
       service_period: 'October 2026',
+      vat_note: 'Vrijgesteld van btw',
     }
     const columns = (db.prepare('pragma table_info(invoices)').all() as { name: string }[]).map(
       (c) => c.name,

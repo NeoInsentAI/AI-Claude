@@ -37,6 +37,18 @@ export function isInvoiceVatTreatment(t: VatTreatment): t is InvoiceVatTreatment
   return t === 'nl_standard' || t === 'eu_reverse_charge'
 }
 
+// A Dutch (nl_standard) invoice may have 0% lines (reported in BTW rubriek 1e), but the invoice
+// must then say why no VAT applies: the VAT note. Reverse-charge invoices already print their own
+// note, so they never need one. Drafts may be saved without it; finalizing requires it.
+export function needsVatNote(treatment: VatTreatment | null, vatRates: readonly number[]): boolean {
+  return treatment === 'nl_standard' && vatRates.some((rate) => rate === 0)
+}
+
+export const MAX_VAT_NOTE_LENGTH = 200
+
+export const VAT_NOTE_REQUIRED =
+  'Add a VAT note explaining why a line has 0% VAT (e.g. the legal basis) — edit the draft to add it.'
+
 // The prefix a country's VAT numbers start with. That's the ISO country code everywhere except
 // Greece, whose VAT numbers use EL (the client country stays the ISO code GR).
 export function vatPrefixForCountry(country: string): string {

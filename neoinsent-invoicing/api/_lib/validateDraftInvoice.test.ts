@@ -40,6 +40,7 @@ describe('validateDraftInvoice', () => {
         due_date: '2026-11-16',
         notes: 'Thanks!',
         service_period: 'October 2026',
+        vat_note: null,
         items: [{ description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 }],
       },
     })
@@ -234,5 +235,33 @@ describe('validateDraftInvoice', () => {
   it('caps notes at 2000 characters after trimming', () => {
     expect(validateDraftInvoice(validBody({ notes: ` ${'a'.repeat(2000)} ` })).ok).toBe(true)
     expectError(validBody({ notes: 'a'.repeat(2001) }), /^Notes can be at most 2000 characters$/)
+  })
+
+  it('stores a trimmed VAT note on a Dutch invoice, and null when missing, non-string or blank', () => {
+    const zero = [item({ vat_rate: 0 })]
+    const ok = validateDraftInvoice(validBody({ items: zero, vat_note: '  Vrijgesteld (art. 11 Wet OB)  ' }))
+    expect(ok.ok && ok.value.vat_note).toBe('Vrijgesteld (art. 11 Wet OB)')
+    for (const vat_note of [undefined, null, 5, '   ']) {
+      const result = validateDraftInvoice(validBody({ items: zero, vat_note }))
+      expect(result.ok && result.value.vat_note).toBeNull()
+    }
+  })
+
+  it('saves a Dutch draft with a 0% line but no VAT note (only finalizing requires it)', () => {
+    const result = validateDraftInvoice(validBody({ items: [item({ vat_rate: 0 })], vat_note: null }))
+    expect(result.ok).toBe(true)
+  })
+
+  it('caps the VAT note at 200 characters after trimming', () => {
+    const ok = validateDraftInvoice(validBody({ vat_note: ` ${'a'.repeat(200)} ` }))
+    expect(ok.ok && ok.value.vat_note).toBe('a'.repeat(200))
+    expectError(validBody({ vat_note: 'a'.repeat(201) }), /^VAT note can be at most 200 characters$/)
+  })
+
+  it('ignores the VAT note on a reverse-charge invoice', () => {
+    const result = validateDraftInvoice(
+      validBody({ vat_treatment: 'eu_reverse_charge', items: [item({ vat_rate: 0 })], vat_note: 'x'.repeat(500) }),
+    )
+    expect(result.ok && result.value.vat_note).toBeNull()
   })
 })

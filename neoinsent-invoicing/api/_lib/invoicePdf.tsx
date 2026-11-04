@@ -217,6 +217,13 @@ function InvoiceDocument({ model, logoPath }: { model: InvoicePdfModel; logoPath
           </View>
         )}
 
+        {model.vatNote && (
+          <View style={styles.reverseCharge} wrap={false}>
+            <Text style={styles.reverseChargeNote}>{labels.vatNote}</Text>
+            <Text>{model.vatNote}</Text>
+          </View>
+        )}
+
         {model.notes && (
           <View style={styles.block}>
             <Text style={styles.sectionLabel}>{labels.notes}</Text>

@@ -64,6 +64,7 @@ function draftFor(client: Client): DraftInvoiceInput {
     due_date: '2026-11-16',
     notes: null,
     service_period: null,
+    vat_note: null,
     items: [{ description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 }],
   }
 }

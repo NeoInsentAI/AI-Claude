@@ -76,13 +76,15 @@ function draftFor(client: Client, items: DraftInvoiceInput['items'], overrides: 
     due_date: '2026-01-15',
     notes: null,
     service_period: null,
+    // Domestic 0% lines need a VAT note to be finalized.
+    vat_note: 'Vrijgesteld van btw',
     items,
     ...overrides,
   } satisfies DraftInvoiceInput
 }
 
 function reverseCharge(client: Client, items: DraftInvoiceInput['items']) {
-  return draftFor(client, items, { language: 'en', vat_treatment: 'eu_reverse_charge' })
+  return draftFor(client, items, { language: 'en', vat_treatment: 'eu_reverse_charge', vat_note: null })
 }
 
 /** Creates a draft and finalizes it on `day` (local time), which becomes its issue date. */

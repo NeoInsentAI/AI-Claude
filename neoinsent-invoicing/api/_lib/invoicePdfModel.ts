@@ -15,6 +15,8 @@ export interface InvoicePdfInput {
   dueDate: string
   /** Date or period of supply (leverdatum) when it differs from the issue date; free text. */
   servicePeriod: string | null
+  /** Why a line has 0% VAT on a Dutch invoice; printed only on an nl_standard invoice. */
+  vatNote: string | null
   notes: string | null
   /** For a final invoice this is the client snapshot (see clientForInvoice). */
   client: ClientDetails
@@ -46,6 +48,7 @@ export interface InvoicePdfLabels {
   vatTotal: string
   total: string
   notes: string
+  vatNote: string
 }
 
 export interface InvoicePdfLine {
@@ -87,6 +90,8 @@ export interface InvoicePdfModel {
   vatBreakdown: InvoicePdfVatGroup[]
   totals: { subtotal: string; vatTotal: string; total: string }
   reverseCharge: { note: string; clientVatNumber: string } | null
+  /** Why a line has 0% VAT (Dutch invoices only), printed below the totals under labels.vatNote. */
+  vatNote: string | null
   notes: string | null
   paymentLine: string
   /** Company details for the page footer, one printed line each. */
@@ -110,6 +115,7 @@ const LABELS: Record<'nl' | 'en', InvoicePdfLabels> = {
     vatTotal: 'Totaal btw',
     total: 'Totaal',
     notes: 'Opmerkingen',
+    vatNote: 'Btw-toelichting',
   },
   en: {
     title: 'INVOICE',
@@ -127,6 +133,7 @@ const LABELS: Record<'nl' | 'en', InvoicePdfLabels> = {
     vatTotal: 'Total VAT',
     total: 'Total',
     notes: 'Notes',
+    vatNote: 'VAT note',
   },
 }
 
@@ -193,6 +200,7 @@ export interface StoredInvoiceForPdf {
   issue_date: string
   due_date: string
   service_period: string | null
+  vat_note: string | null
   notes: string | null
   client_snapshot: ClientDetails | null
   items: InvoicePdfInput['items']
@@ -220,6 +228,7 @@ export function pdfInputForStoredInvoice(invoice: StoredInvoiceForPdf): InvoiceP
     issueDate: invoice.issue_date,
     dueDate: invoice.due_date,
     servicePeriod: invoice.service_period,
+    vatNote: invoice.vat_note,
     notes: invoice.notes,
     client: invoice.client_snapshot,
     items: invoice.items.map(({ description, quantity, unit_price, vat_rate, line_total }) => ({
@@ -349,6 +358,9 @@ export function buildInvoicePdfModel(input: InvoicePdfInput): InvoicePdfModel {
       total: formatCurrency(input.total),
     },
     reverseCharge,
+    // Not required here: an invoice issued before VAT notes existed must still re-create its PDF.
+    // finalizeDraftInvoice is what insists on one for a new 0% line.
+    vatNote: input.vatTreatment === 'nl_standard' ? input.vatNote?.trim() || null : null,
     notes: input.notes?.trim() ? input.notes : null,
     paymentLine: text.payment(iban, input.invoiceNumber),
     footer,

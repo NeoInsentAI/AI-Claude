@@ -69,6 +69,7 @@ function draftFor(client: Client, overrides: Partial<DraftInvoiceInput> = {}): D
     due_date: '2026-11-16',
     notes: null,
     service_period: null,
+    vat_note: null,
     items: [
       // 2 x 100.00 = 200.00, 21% VAT 42.00
       { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
@@ -160,6 +161,43 @@ describe('finalizeDraftInvoice', () => {
     const result = await finalizeDraftInvoice(draft.id, NOW)
 
     expect(result.status === 'ok' && result.invoice).toMatchObject({ issue_date: '2026-11-04', due_date: '2026-11-04' })
+  })
+
+  it("refuses a Dutch invoice with a 0% line but no VAT note ('invalid'), consuming no number", async () => {
+    const draft = await createDraftInvoice(
+      draftFor(acme, {
+        items: [
+          { description: 'Consulting', quantity: 2, unit_price: 100, vat_rate: 21 },
+          { description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0 },
+        ],
+      }),
+    )
+    const before = storedRow(draft.id)
+
+    const result = await finalizeDraftInvoice(draft.id, NOW)
+
+    expect(result).toEqual({
+      status: 'invalid',
+      message: 'Add a VAT note explaining why a line has 0% VAT (e.g. the legal basis) — edit the draft to add it.',
+    })
+    expect(storedRow(draft.id)).toEqual(before)
+    expect(counter(2026)).toBeNull()
+  })
+
+  it('finalizes a Dutch invoice with a 0% line and a VAT note, keeping and printing the note', async () => {
+    const draft = await createDraftInvoice(
+      draftFor(acme, {
+        vat_note: 'Vrijgesteld van btw (art. 11 Wet OB)',
+        items: [{ description: 'Training', quantity: 1, unit_price: 50, vat_rate: 0 }],
+      }),
+    )
+
+    const result = await finalizeDraftInvoice(draft.id, NOW)
+
+    expect(result.status).toBe('ok')
+    if (result.status !== 'ok') return
+    expect(result.invoice.vat_note).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
+    expect(result.pdfModel.vatNote).toBe('Vrijgesteld van btw (art. 11 Wet OB)')
   })
 
   it("refuses a number that already has a PDF in the invoices folder ('number_conflict')", async () => {

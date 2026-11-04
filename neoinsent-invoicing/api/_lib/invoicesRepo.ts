@@ -8,7 +8,7 @@ import { vatMismatchMessage } from './checkClientForDraft'
 import { TaxReportDataError } from './taxReportError'
 import { buildInvoicePdfModel, pdfInputForStoredInvoice, type InvoicePdfModel } from './invoicePdfModel'
 import { computeInvoiceTotals, computeLine, computeStoredLineCents } from '../../src/lib/invoiceMath'
-import { determineVatTreatment, type InvoiceVatTreatment } from '../../src/lib/vat'
+import { determineVatTreatment, needsVatNote, VAT_NOTE_REQUIRED, type InvoiceVatTreatment } from '../../src/lib/vat'
 
 // The database stores money as integer cents and quantities as integer hundredths; everything
 // this module returns is in euros / plain quantities, converted at this boundary.
@@ -29,6 +29,8 @@ export interface DraftInvoiceInput {
   notes: string | null
   /** Date or period of supply (leverdatum) when it differs from the issue date, e.g. 'October 2026'. */
   service_period: string | null
+  /** Why a line has 0% VAT on a Dutch invoice (required to finalize one); null for reverse charge. */
+  vat_note: string | null
   items: InvoiceItemInput[]
 }
 
@@ -47,6 +49,8 @@ export interface Invoice {
   notes: string | null
   /** Date or period of supply (leverdatum), when it differs from the issue date. */
   service_period: string | null
+  /** Why a line has 0% VAT on a Dutch invoice; printed on the PDF. */
+  vat_note: string | null
   subtotal: number
   vat_amount: number
   total: number
@@ -177,6 +181,7 @@ interface InvoiceRow {
   due_date: string
   notes: string | null
   service_period: string | null
+  vat_note: string | null
   subtotal_cents: number
   vat_amount_cents: number
   total_cents: number
@@ -228,6 +233,7 @@ function fromInvoiceRow(row: InvoiceRow): Invoice {
     due_date: row.due_date,
     notes: row.notes,
     service_period: row.service_period,
+    vat_note: row.vat_note,
     subtotal: fromCents(row.subtotal_cents),
     vat_amount: fromCents(row.vat_amount_cents),
     total: fromCents(row.total_cents),
@@ -331,9 +337,9 @@ export async function createDraftInvoice(input: DraftInvoiceInput): Promise<Invo
   const row = withTransaction(db, () => {
     db.prepare(
       `insert into invoices (id, client_id, status, language, vat_treatment, issue_date, due_date,
-                             notes, service_period, subtotal_cents, vat_amount_cents,
+                             notes, service_period, vat_note, subtotal_cents, vat_amount_cents,
                              total_cents, created_at)
-       values (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       values (?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       input.client_id,
@@ -343,6 +349,7 @@ export async function createDraftInvoice(input: DraftInvoiceInput): Promise<Invo
       input.due_date,
       input.notes,
       input.service_period,
+      input.vat_note,
       totals.subtotal_cents,
       totals.vat_amount_cents,
       totals.total_cents,
@@ -730,8 +737,8 @@ export async function replaceDraftInvoice(
 
     db.prepare(
       `update invoices set client_id = ?, language = ?, vat_treatment = ?, issue_date = ?,
-                           due_date = ?, notes = ?, service_period = ?, subtotal_cents = ?,
-                           vat_amount_cents = ?, total_cents = ?, updated_at = ?
+                           due_date = ?, notes = ?, service_period = ?, vat_note = ?,
+                           subtotal_cents = ?, vat_amount_cents = ?, total_cents = ?, updated_at = ?
        where id = ?`,
     ).run(
       input.client_id,
@@ -741,6 +748,7 @@ export async function replaceDraftInvoice(
       input.due_date,
       input.notes,
       input.service_period,
+      input.vat_note,
       totals.subtotal_cents,
       totals.vat_amount_cents,
       totals.total_cents,
@@ -867,6 +875,10 @@ export async function finalizeDraftInvoice(id: string, now: Date = new Date()): 
         .prepare('select * from invoice_items where invoice_id = ? order by sort_order')
         .all(id) as unknown as InvoiceItemRow[]
       if (items.length === 0) return { status: 'invalid', message: 'An invoice needs at least one line' }
+      // Dutch invoice rules: a 0% line must say why no VAT applies.
+      if (needsVatNote(row.vat_treatment, items.map((item) => item.vat_rate)) && !row.vat_note?.trim()) {
+        return { status: 'invalid', message: VAT_NOTE_REQUIRED }
+      }
 
       // Recompute every stored amount from the lines with the current (integer-cent) rules, so
       // the issued totals always agree with the lines printed on the PDF.
