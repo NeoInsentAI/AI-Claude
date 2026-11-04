@@ -88,16 +88,19 @@ fi
   echo "NeoInsent did not start within 60 seconds. Look at the messages above for the reason."
 ) &
 WAITER=$!
-# However the app stops (Ctrl+C, closing the window, an error), stop the waiter too, so it never
-# reports a startup timeout after the fact.
-trap 'kill "$WAITER" 2>/dev/null' EXIT INT HUP
+# However this script ends, stop the waiter too, so it never reports a startup timeout after the
+# fact. Ctrl+C (INT) and closing the window (HUP) end the script right away, through that EXIT trap.
+trap 'kill "$WAITER" 2>/dev/null' EXIT
+trap 'exit 130' INT
+trap 'exit 129' HUP
 
 # Build the frontend and run the server in the foreground, so Ctrl+C stops it.
 export PORT
 npm start
 STATUS=$?
 kill "$WAITER" 2>/dev/null
-if [ "$STATUS" -ne 0 ] && [ "$STATUS" -ne 130 ]; then
+# 130 = stopped with Ctrl+C, 129 = window closed: a normal stop, not an error.
+if [ "$STATUS" -ne 0 ] && [ "$STATUS" -ne 130 ] && [ "$STATUS" -ne 129 ]; then
   echo
   echo "NeoInsent stopped with an error (see above)."
   pause_and_exit "$STATUS"
