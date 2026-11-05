@@ -19,4 +19,3 @@ Esteban's working repo for NeoInsent AI's non-code work: client proposals, produ
 
 ## Rules
 - New app or prototype: create it in `~/Developer`, not here.
-- Client deliverables are bilingual (Spanish/English) where the client needs it. Check the existing proposal first.
