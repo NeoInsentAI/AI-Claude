@@ -1,0 +1,1842 @@
+{
+  "composition": "/Users/sera/AI-Claude/videos/too-many-tabs",
+  "duration": 20,
+  "totalTweens": 74,
+  "mappedTweens": 19,
+  "skippedMicroTweens": 55,
+  "tweens": [
+    {
+      "index": 1,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 0,
+      "end": 11,
+      "duration": 11,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 11.00s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 2,
+      "selector": "#panel-tabs",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "start": 0.6,
+      "end": 1.1,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 0.642,
+          "x": 417,
+          "y": 82,
+          "w": 246,
+          "h": 24,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 0.725,
+          "x": 239,
+          "y": 113,
+          "w": 602,
+          "h": 60,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 0.808,
+          "x": 96,
+          "y": 138,
+          "w": 888,
+          "h": 88,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 0.892,
+          "x": 54,
+          "y": 146,
+          "w": 972,
+          "h": 96,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 0.975,
+          "x": 33,
+          "y": 150,
+          "w": 1015,
+          "h": 100,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 1.058,
+          "x": 30,
+          "y": 150,
+          "w": 1020,
+          "h": 101,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [],
+      "summary": "#panel-tabs animates scale+opacity+x+y over 0.50s (power3.out). moves 68px down and 387px left. opacity 0.2→1.0. scales. width 246→1020px. height 24→101px. ends at (30, 150) 1020×101px."
+    },
+    {
+      "index": 3,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 1.1,
+      "end": 11,
+      "duration": 9.9,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 9.90s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 4,
+      "selector": "#panel-chat",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "start": 2.2,
+      "end": 2.7,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 2.242,
+          "x": 417,
+          "y": 1471,
+          "w": 246,
+          "h": 39,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 2.325,
+          "x": 239,
+          "y": 1387,
+          "w": 602,
+          "h": 96,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 2.408,
+          "x": 96,
+          "y": 1319,
+          "w": 888,
+          "h": 141,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 2.492,
+          "x": 54,
+          "y": 1299,
+          "w": 972,
+          "h": 154,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 2.575,
+          "x": 33,
+          "y": 1289,
+          "w": 1015,
+          "h": 161,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 2.658,
+          "x": 30,
+          "y": 1288,
+          "w": 1020,
+          "h": 162,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [
+        "offscreen"
+      ],
+      "summary": "#panel-chat animates scale+opacity+x+y over 0.50s (power3.out). moves 183px up and 387px left. opacity 0.2→1.0. scales. width 246→1020px. height 39→162px. ends at (30, 1288) 1020×162px. FLAGS: offscreen."
+    },
+    {
+      "index": 5,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 2.7,
+      "end": 11,
+      "duration": 8.3,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 8.30s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 6,
+      "selector": "#panel-notes",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "start": 3.6,
+      "end": 4.1,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 3.642,
+          "x": 129,
+          "y": 750,
+          "w": 150,
+          "h": 32,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 3.725,
+          "x": 83,
+          "y": 727,
+          "w": 366,
+          "h": 78,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 3.808,
+          "x": 47,
+          "y": 709,
+          "w": 540,
+          "h": 115,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 3.892,
+          "x": 36,
+          "y": 703,
+          "w": 591,
+          "h": 126,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 3.975,
+          "x": 31,
+          "y": 700,
+          "w": 617,
+          "h": 131,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 4.058,
+          "x": 30,
+          "y": 700,
+          "w": 620,
+          "h": 132,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [],
+      "summary": "#panel-notes animates scale+opacity+x+y over 0.50s (power3.out). moves 50px up and 99px left. opacity 0.2→1.0. scales. width 150→620px. height 32→132px. ends at (30, 700) 620×132px."
+    },
+    {
+      "index": 7,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 4.1,
+      "end": 11,
+      "duration": 6.9,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 6.90s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 8,
+      "selector": "#panel-run",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "start": 4.8,
+      "end": 5.3,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 4.842,
+          "x": 926,
+          "y": 643,
+          "w": 101,
+          "h": 53,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 4.925,
+          "x": 790,
+          "y": 605,
+          "w": 248,
+          "h": 130,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 5.008,
+          "x": 681,
+          "y": 574,
+          "w": 366,
+          "h": 191,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 5.092,
+          "x": 648,
+          "y": 565,
+          "w": 400,
+          "h": 210,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 5.175,
+          "x": 632,
+          "y": 561,
+          "w": 418,
+          "h": 219,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 5.258,
+          "x": 630,
+          "y": 560,
+          "w": 420,
+          "h": 220,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [],
+      "summary": "#panel-run animates scale+opacity+x+y over 0.50s (power3.out). moves 83px up and 296px left. opacity 0.2→1.0. scales. width 101→420px. height 53→220px. ends at (630, 560) 420×220px."
+    },
+    {
+      "index": 9,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 5.3,
+      "end": 11,
+      "duration": 5.7,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 5.70s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 10,
+      "selector": "#panel-toast-a",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "start": 5.8,
+      "end": 6.3,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 5.842,
+          "x": 995,
+          "y": 359,
+          "w": 53,
+          "h": 19,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 5.925,
+          "x": 915,
+          "y": 387,
+          "w": 129,
+          "h": 47,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 6.008,
+          "x": 850,
+          "y": 410,
+          "w": 191,
+          "h": 70,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 6.092,
+          "x": 832,
+          "y": 416,
+          "w": 209,
+          "h": 76,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 6.175,
+          "x": 822,
+          "y": 420,
+          "w": 218,
+          "h": 80,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 6.258,
+          "x": 821,
+          "y": 420,
+          "w": 219,
+          "h": 80,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [],
+      "summary": "#panel-toast-a animates scale+opacity+x+y over 0.50s (power3.out). moves 61px down and 174px left. opacity 0.2→1.0. scales. width 53→219px. height 19→80px. ends at (821, 420) 219×80px."
+    },
+    {
+      "index": 11,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 6.3,
+      "end": 11,
+      "duration": 4.7,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 4.70s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 12,
+      "selector": "#panel-toast-b",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "start": 6.6,
+      "end": 7.1,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 6.642,
+          "x": 26,
+          "y": 1631,
+          "w": 49,
+          "h": 19,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 6.725,
+          "x": 33,
+          "y": 1576,
+          "w": 120,
+          "h": 47,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 6.808,
+          "x": 38,
+          "y": 1531,
+          "w": 177,
+          "h": 70,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 6.892,
+          "x": 39,
+          "y": 1518,
+          "w": 194,
+          "h": 76,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 6.975,
+          "x": 40,
+          "y": 1511,
+          "w": 203,
+          "h": 80,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 7.058,
+          "x": 40,
+          "y": 1510,
+          "w": 204,
+          "h": 80,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [
+        "offscreen"
+      ],
+      "summary": "#panel-toast-b animates scale+opacity+x+y over 0.50s (power3.out). moves 121px up and 14px right. opacity 0.2→1.0. scales. width 49→204px. height 19→80px. ends at (40, 1510) 204×80px. FLAGS: offscreen."
+    },
+    {
+      "index": 13,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 7.1,
+      "end": 11,
+      "duration": 3.9,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 3.90s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    },
+    {
+      "index": 14,
+      "selector": "#s2-bar-fill",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scaleX"
+      ],
+      "start": 11.2,
+      "end": 13,
+      "duration": 1.8,
+      "ease": "power2.out",
+      "bboxes": [
+        {
+          "t": 11.35,
+          "x": 0,
+          "y": 1908,
+          "w": 1011,
+          "h": 12,
+          "opacity": 1,
+          "visible": true
+        },
+        {
+          "t": 11.65,
+          "x": 0,
+          "y": 1908,
+          "w": 1042,
+          "h": 12,
+          "opacity": 1,
+          "visible": true
+        },
+        {
+          "t": 11.95,
+          "x": 0,
+          "y": 1908,
+          "w": 1062,
+          "h": 12,
+          "opacity": 1,
+          "visible": true
+        },
+        {
+          "t": 12.25,
+          "x": 0,
+          "y": 1908,
+          "w": 1073,
+          "h": 12,
+          "opacity": 1,
+          "visible": true
+        },
+        {
+          "t": 12.55,
+          "x": 0,
+          "y": 1908,
+          "w": 1078,
+          "h": 12,
+          "opacity": 1,
+          "visible": true
+        },
+        {
+          "t": 12.85,
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1,
+          "visible": true
+        }
+      ],
+      "flags": [
+        "offscreen"
+      ],
+      "summary": "#s2-bar-fill animates scaleX over 1.80s (power2.out). scales. width 1011→1080px. ends at (0, 1908) 1080×12px. FLAGS: offscreen."
+    },
+    {
+      "index": 15,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "scale",
+        "x",
+        "y"
+      ],
+      "start": 13.2,
+      "end": 13.9,
+      "duration": 0.7,
+      "ease": "expo.out",
+      "bboxes": [],
+      "flags": [],
+      "summary": "an onUpdate driver animates scale+x+y over 0.70s (expo.out) — motion is applied in JS, so no element geometry was measured. scales."
+    },
+    {
+      "index": 16,
+      "selector": "#s2-eyebrow",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "opacity",
+        "y"
+      ],
+      "start": 13.9,
+      "end": 14.4,
+      "duration": 0.5,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 13.942,
+          "x": 90,
+          "y": 712,
+          "w": 114,
+          "h": 28,
+          "opacity": 0.2412,
+          "visible": true
+        },
+        {
+          "t": 14.025,
+          "x": 90,
+          "y": 707,
+          "w": 114,
+          "h": 28,
+          "opacity": 0.5904,
+          "visible": true
+        },
+        {
+          "t": 14.108,
+          "x": 90,
+          "y": 702,
+          "w": 114,
+          "h": 28,
+          "opacity": 0.8704,
+          "visible": true
+        },
+        {
+          "t": 14.192,
+          "x": 90,
+          "y": 701,
+          "w": 114,
+          "h": 28,
+          "opacity": 0.9526,
+          "visible": true
+        },
+        {
+          "t": 14.275,
+          "x": 90,
+          "y": 700,
+          "w": 114,
+          "h": 28,
+          "opacity": 0.9949,
+          "visible": true
+        },
+        {
+          "t": 14.358,
+          "x": 90,
+          "y": 700,
+          "w": 114,
+          "h": 28,
+          "opacity": 0.9997,
+          "visible": true
+        }
+      ],
+      "flags": [],
+      "summary": "#s2-eyebrow animates opacity+y over 0.50s (power3.out). moves 12px up. opacity 0.2→1.0. ends at (90, 700) 114×28px."
+    },
+    {
+      "index": 17,
+      "selector": "#s2-close",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "scale",
+        "opacity"
+      ],
+      "start": 13.9,
+      "end": 14.5,
+      "duration": 0.6,
+      "ease": "power3.out",
+      "bboxes": [
+        {
+          "t": 13.95,
+          "x": 83,
+          "y": 930,
+          "w": 185,
+          "h": 39,
+          "opacity": 0.2044,
+          "visible": true
+        },
+        {
+          "t": 14.05,
+          "x": 81,
+          "y": 871,
+          "w": 575,
+          "h": 122,
+          "opacity": 0.634,
+          "visible": true
+        },
+        {
+          "t": 14.15,
+          "x": 80,
+          "y": 841,
+          "w": 780,
+          "h": 166,
+          "opacity": 0.8605,
+          "visible": true
+        },
+        {
+          "t": 14.25,
+          "x": 79,
+          "y": 827,
+          "w": 871,
+          "h": 186,
+          "opacity": 0.961,
+          "visible": true
+        },
+        {
+          "t": 14.35,
+          "x": 79,
+          "y": 823,
+          "w": 901,
+          "h": 192,
+          "opacity": 0.994,
+          "visible": true
+        },
+        {
+          "t": 14.45,
+          "x": 79,
+          "y": 822,
+          "w": 906,
+          "h": 193,
+          "opacity": 0.9998,
+          "visible": true
+        }
+      ],
+      "flags": [
+        "collision"
+      ],
+      "summary": "#s2-close animates scale+opacity over 0.60s (power3.out). moves 108px up and 4px left. opacity 0.2→1.0. scales. width 185→906px. height 39→193px. ends at (79, 822) 906×193px. Overlaps another animated element."
+    },
+    {
+      "index": 18,
+      "selector": "#s2-glow",
+      "driver": "target",
+      "targets": 1,
+      "props": [
+        "opacity"
+      ],
+      "start": 13.9,
+      "end": 15.1,
+      "duration": 1.2,
+      "ease": "power2.out",
+      "bboxes": [
+        {
+          "t": 14,
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 0.2297,
+          "visible": true
+        },
+        {
+          "t": 14.2,
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 0.5781,
+          "visible": true
+        },
+        {
+          "t": 14.4,
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 0.8015,
+          "visible": true
+        },
+        {
+          "t": 14.6,
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 0.9277,
+          "visible": true
+        },
+        {
+          "t": 14.8,
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 0.9844,
+          "visible": true
+        },
+        {
+          "t": 15,
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 0.9994,
+          "visible": true
+        }
+      ],
+      "flags": [
+        "offscreen",
+        "collision"
+      ],
+      "summary": "#s2-glow animates opacity over 1.20s (power2.out). opacity 0.2→1.0. ends at (90, 740) 900×900px. FLAGS: offscreen. Overlaps another animated element."
+    },
+    {
+      "index": 19,
+      "selector": "(onUpdate driver)",
+      "driver": "onUpdate",
+      "targets": 0,
+      "props": [
+        "p"
+      ],
+      "start": 15.1,
+      "end": 20,
+      "duration": 4.9,
+      "ease": "none",
+      "bboxes": [],
+      "flags": [
+        "paced-slow"
+      ],
+      "summary": "an onUpdate driver animates p over 4.90s (none) — motion is applied in JS, so no element geometry was measured. FLAGS: paced-slow."
+    }
+  ],
+  "choreography": "Timeline (20.0s, each char ≈ 0.33s):\n  0s                                                    20s\n  ┼───────────────────────────────────────────────────────────┤\n  █████████████████████████████████                             (onUpdate driver) p\n   ███                                                          #panel-tabs scale+opacity+x+y\n     ██████████████████████████████                             (onUpdate driver) p\n        ███                                                     #panel-chat scale+opacity+x+y\n          █████████████████████████                             (onUpdate driver) p\n            ███                                                 #panel-notes scale+opacity+x+y\n              █████████████████████                             (onUpdate driver) p\n                ██                                              #panel-run scale+opacity+x+y\n                 ██████████████████                             (onUpdate driver) p\n                   ██                                           #panel-toast-a scale+opacity+x+y\n                    ███████████████                             (onUpdate driver) p\n                     ███                                        #panel-toast-b scale+opacity+x+y\n                       ████████████                             (onUpdate driver) p\n                                   ██████                       #s2-bar-fill scaleX\n                                         ███                    (onUpdate driver) scale+x+y\n                                           ███                  #s2-eyebrow opacity+y\n                                           ███                  #s2-close scale+opacity\n                                           █████                #s2-glow opacity\n                                               ███████████████  (onUpdate driver) p",
+  "density": [
+    {
+      "t": 0,
+      "activeTweens": 1
+    },
+    {
+      "t": 0.5,
+      "activeTweens": 2
+    },
+    {
+      "t": 1,
+      "activeTweens": 3
+    },
+    {
+      "t": 1.5,
+      "activeTweens": 2
+    },
+    {
+      "t": 2,
+      "activeTweens": 3
+    },
+    {
+      "t": 2.5,
+      "activeTweens": 4
+    },
+    {
+      "t": 3,
+      "activeTweens": 3
+    },
+    {
+      "t": 3.5,
+      "activeTweens": 4
+    },
+    {
+      "t": 4,
+      "activeTweens": 5
+    },
+    {
+      "t": 4.5,
+      "activeTweens": 5
+    },
+    {
+      "t": 5,
+      "activeTweens": 6
+    },
+    {
+      "t": 5.5,
+      "activeTweens": 6
+    },
+    {
+      "t": 6,
+      "activeTweens": 7
+    },
+    {
+      "t": 6.5,
+      "activeTweens": 7
+    },
+    {
+      "t": 7,
+      "activeTweens": 8
+    },
+    {
+      "t": 7.5,
+      "activeTweens": 7
+    },
+    {
+      "t": 8,
+      "activeTweens": 7
+    },
+    {
+      "t": 8.5,
+      "activeTweens": 7
+    },
+    {
+      "t": 9,
+      "activeTweens": 7
+    },
+    {
+      "t": 9.5,
+      "activeTweens": 7
+    },
+    {
+      "t": 10,
+      "activeTweens": 7
+    },
+    {
+      "t": 10.5,
+      "activeTweens": 7
+    },
+    {
+      "t": 11,
+      "activeTweens": 8
+    },
+    {
+      "t": 11.5,
+      "activeTweens": 1
+    },
+    {
+      "t": 12,
+      "activeTweens": 1
+    },
+    {
+      "t": 12.5,
+      "activeTweens": 1
+    },
+    {
+      "t": 13,
+      "activeTweens": 2
+    },
+    {
+      "t": 13.5,
+      "activeTweens": 4
+    },
+    {
+      "t": 14,
+      "activeTweens": 3
+    },
+    {
+      "t": 14.5,
+      "activeTweens": 2
+    },
+    {
+      "t": 15,
+      "activeTweens": 2
+    },
+    {
+      "t": 15.5,
+      "activeTweens": 1
+    },
+    {
+      "t": 16,
+      "activeTweens": 1
+    },
+    {
+      "t": 16.5,
+      "activeTweens": 1
+    },
+    {
+      "t": 17,
+      "activeTweens": 1
+    },
+    {
+      "t": 17.5,
+      "activeTweens": 1
+    },
+    {
+      "t": 18,
+      "activeTweens": 1
+    },
+    {
+      "t": 18.5,
+      "activeTweens": 1
+    },
+    {
+      "t": 19,
+      "activeTweens": 1
+    },
+    {
+      "t": 19.5,
+      "activeTweens": 1
+    }
+  ],
+  "staggers": [],
+  "elements": {
+    "#panel-tabs": {
+      "firstAppears": 0.6,
+      "lastAnimates": 1.1,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 30,
+        "y": 150,
+        "w": 1020,
+        "h": 101
+      }
+    },
+    "#panel-chat": {
+      "firstAppears": 2.2,
+      "lastAnimates": 2.7,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 30,
+        "y": 1288,
+        "w": 1020,
+        "h": 162
+      }
+    },
+    "#panel-notes": {
+      "firstAppears": 3.6,
+      "lastAnimates": 4.1,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 30,
+        "y": 700,
+        "w": 620,
+        "h": 132
+      }
+    },
+    "#panel-run": {
+      "firstAppears": 4.8,
+      "lastAnimates": 5.3,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 630,
+        "y": 560,
+        "w": 420,
+        "h": 220
+      }
+    },
+    "#panel-toast-a": {
+      "firstAppears": 5.8,
+      "lastAnimates": 6.3,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 821,
+        "y": 420,
+        "w": 219,
+        "h": 80
+      }
+    },
+    "#panel-toast-b": {
+      "firstAppears": 6.6,
+      "lastAnimates": 7.1,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity",
+        "x",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 40,
+        "y": 1510,
+        "w": 204,
+        "h": 80
+      }
+    },
+    "#s2-bar-fill": {
+      "firstAppears": 11.2,
+      "lastAnimates": 13,
+      "tweenCount": 1,
+      "props": [
+        "scaleX"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 0,
+        "y": 1908,
+        "w": 1080,
+        "h": 12
+      }
+    },
+    "#s2-eyebrow": {
+      "firstAppears": 13.9,
+      "lastAnimates": 14.4,
+      "tweenCount": 1,
+      "props": [
+        "opacity",
+        "y"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 90,
+        "y": 700,
+        "w": 114,
+        "h": 28
+      }
+    },
+    "#s2-close": {
+      "firstAppears": 13.9,
+      "lastAnimates": 14.5,
+      "tweenCount": 1,
+      "props": [
+        "scale",
+        "opacity"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 79,
+        "y": 822,
+        "w": 906,
+        "h": 193
+      }
+    },
+    "#s2-glow": {
+      "firstAppears": 13.9,
+      "lastAnimates": 15.1,
+      "tweenCount": 1,
+      "props": [
+        "opacity"
+      ],
+      "endsVisible": true,
+      "finalPosition": {
+        "x": 90,
+        "y": 740,
+        "w": 900,
+        "h": 900
+      }
+    }
+  },
+  "deadZones": [],
+  "snapshots": [
+    {
+      "t": 0,
+      "visibleElements": 8,
+      "animatingNow": [
+        "(onUpdate driver)"
+      ],
+      "elements": [
+        {
+          "id": "root",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "scene1",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s1-glow",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 0.5
+        },
+        {
+          "id": "s1-cursor",
+          "x": 537,
+          "y": 829,
+          "w": 6,
+          "h": 108,
+          "opacity": 1
+        },
+        {
+          "id": "scene2",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-world",
+          "x": -5424,
+          "y": -10524,
+          "w": 6480,
+          "h": 11520,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-track",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-fill",
+          "x": 0,
+          "y": 1908,
+          "w": 994,
+          "h": 12,
+          "opacity": 1
+        }
+      ]
+    },
+    {
+      "t": 5,
+      "visibleElements": 11,
+      "animatingNow": [
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "#panel-run"
+      ],
+      "elements": [
+        {
+          "id": "root",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "scene1",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s1-glow",
+          "x": 7,
+          "y": 12,
+          "w": 1066,
+          "h": 1895,
+          "opacity": 0.43
+        },
+        {
+          "id": "panel-tabs",
+          "x": 30,
+          "y": 147,
+          "w": 1020,
+          "h": 101,
+          "opacity": 1
+        },
+        {
+          "id": "panel-chat",
+          "x": 30,
+          "y": 1286,
+          "w": 1020,
+          "h": 162,
+          "opacity": 1
+        },
+        {
+          "id": "panel-notes",
+          "x": 30,
+          "y": 701,
+          "w": 620,
+          "h": 132,
+          "opacity": 1
+        },
+        {
+          "id": "panel-run",
+          "x": 681,
+          "y": 574,
+          "w": 366,
+          "h": 191,
+          "opacity": 0.87
+        },
+        {
+          "id": "scene2",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-world",
+          "x": -5424,
+          "y": -10524,
+          "w": 6480,
+          "h": 11520,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-track",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-fill",
+          "x": 0,
+          "y": 1908,
+          "w": 994,
+          "h": 12,
+          "opacity": 1
+        }
+      ]
+    },
+    {
+      "t": 10,
+      "visibleElements": 14,
+      "animatingNow": [
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)",
+        "(onUpdate driver)"
+      ],
+      "elements": [
+        {
+          "id": "root",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "scene1",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s1-glow",
+          "x": -4,
+          "y": -8,
+          "w": 1089,
+          "h": 1935,
+          "opacity": 0.54
+        },
+        {
+          "id": "s1-cursor",
+          "x": 537,
+          "y": 829,
+          "w": 6,
+          "h": 108,
+          "opacity": 1
+        },
+        {
+          "id": "panel-tabs",
+          "x": 30,
+          "y": 149,
+          "w": 1020,
+          "h": 101,
+          "opacity": 1
+        },
+        {
+          "id": "panel-chat",
+          "x": 30,
+          "y": 1286,
+          "w": 1020,
+          "h": 162,
+          "opacity": 1
+        },
+        {
+          "id": "panel-notes",
+          "x": 30,
+          "y": 698,
+          "w": 620,
+          "h": 132,
+          "opacity": 1
+        },
+        {
+          "id": "panel-run",
+          "x": 630,
+          "y": 558,
+          "w": 420,
+          "h": 220,
+          "opacity": 1
+        },
+        {
+          "id": "panel-toast-a",
+          "x": 821,
+          "y": 419,
+          "w": 219,
+          "h": 80,
+          "opacity": 1
+        },
+        {
+          "id": "panel-toast-b",
+          "x": 40,
+          "y": 1511,
+          "w": 204,
+          "h": 80,
+          "opacity": 1
+        },
+        {
+          "id": "scene2",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-world",
+          "x": -5424,
+          "y": -10524,
+          "w": 6480,
+          "h": 11520,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-track",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-fill",
+          "x": 0,
+          "y": 1908,
+          "w": 994,
+          "h": 12,
+          "opacity": 1
+        }
+      ]
+    },
+    {
+      "t": 15,
+      "visibleElements": 17,
+      "animatingNow": [
+        "#s2-glow"
+      ],
+      "elements": [
+        {
+          "id": "root",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "scene1",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s1-glow",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 0.5
+        },
+        {
+          "id": "s1-cursor",
+          "x": 537,
+          "y": 829,
+          "w": 6,
+          "h": 108,
+          "opacity": 1
+        },
+        {
+          "id": "panel-tabs",
+          "x": 30,
+          "y": 150,
+          "w": 1020,
+          "h": 101,
+          "opacity": 1
+        },
+        {
+          "id": "panel-chat",
+          "x": 30,
+          "y": 1288,
+          "w": 1020,
+          "h": 162,
+          "opacity": 1
+        },
+        {
+          "id": "panel-notes",
+          "x": 30,
+          "y": 700,
+          "w": 620,
+          "h": 132,
+          "opacity": 1
+        },
+        {
+          "id": "panel-run",
+          "x": 630,
+          "y": 560,
+          "w": 420,
+          "h": 220,
+          "opacity": 1
+        },
+        {
+          "id": "panel-toast-a",
+          "x": 821,
+          "y": 420,
+          "w": 219,
+          "h": 80,
+          "opacity": 1
+        },
+        {
+          "id": "panel-toast-b",
+          "x": 40,
+          "y": 1510,
+          "w": 204,
+          "h": 80,
+          "opacity": 1
+        },
+        {
+          "id": "scene2",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-world",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-glow",
+          "x": 90,
+          "y": 740,
+          "w": 900,
+          "h": 900,
+          "opacity": 1
+        },
+        {
+          "id": "s2-eyebrow",
+          "x": 90,
+          "y": 700,
+          "w": 114,
+          "h": 28,
+          "opacity": 1
+        },
+        {
+          "id": "s2-close",
+          "x": 79,
+          "y": 822,
+          "w": 907,
+          "h": 193,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-track",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-fill",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        }
+      ]
+    },
+    {
+      "t": 19.9,
+      "visibleElements": 17,
+      "animatingNow": [
+        "(onUpdate driver)"
+      ],
+      "elements": [
+        {
+          "id": "root",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "scene1",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s1-glow",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 0.5
+        },
+        {
+          "id": "s1-cursor",
+          "x": 537,
+          "y": 829,
+          "w": 6,
+          "h": 108,
+          "opacity": 1
+        },
+        {
+          "id": "panel-tabs",
+          "x": 30,
+          "y": 150,
+          "w": 1020,
+          "h": 101,
+          "opacity": 1
+        },
+        {
+          "id": "panel-chat",
+          "x": 30,
+          "y": 1288,
+          "w": 1020,
+          "h": 162,
+          "opacity": 1
+        },
+        {
+          "id": "panel-notes",
+          "x": 30,
+          "y": 700,
+          "w": 620,
+          "h": 132,
+          "opacity": 1
+        },
+        {
+          "id": "panel-run",
+          "x": 630,
+          "y": 560,
+          "w": 420,
+          "h": 220,
+          "opacity": 1
+        },
+        {
+          "id": "panel-toast-a",
+          "x": 821,
+          "y": 420,
+          "w": 219,
+          "h": 80,
+          "opacity": 1
+        },
+        {
+          "id": "panel-toast-b",
+          "x": 40,
+          "y": 1510,
+          "w": 204,
+          "h": 80,
+          "opacity": 1
+        },
+        {
+          "id": "scene2",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-world",
+          "x": 0,
+          "y": 0,
+          "w": 1080,
+          "h": 1920,
+          "opacity": 1
+        },
+        {
+          "id": "s2-glow",
+          "x": 90,
+          "y": 741,
+          "w": 899,
+          "h": 899,
+          "opacity": 1
+        },
+        {
+          "id": "s2-eyebrow",
+          "x": 90,
+          "y": 700,
+          "w": 114,
+          "h": 28,
+          "opacity": 1
+        },
+        {
+          "id": "s2-close",
+          "x": 79,
+          "y": 822,
+          "w": 907,
+          "h": 193,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-track",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        },
+        {
+          "id": "s2-bar-fill",
+          "x": 0,
+          "y": 1908,
+          "w": 1080,
+          "h": 12,
+          "opacity": 1
+        }
+      ]
+    }
+  ]
+}

@@ -1,1 +1,7 @@
 .worktrees/
+.DS_Store
+~$*
+.superpowers/brainstorm/*/state/
+.claude/settings.local.json
+.claude/worktrees/
+node_modules/

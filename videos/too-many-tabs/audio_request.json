@@ -1,0 +1,10 @@
+{
+  "lines": [
+    { "id": "1", "text": "", "sfx": ["notification", "ping", "key-press", "click"] },
+    { "id": "2", "text": "", "sfx": ["chime"] }
+  ],
+  "bgm": {
+    "mode": "generate",
+    "prompt": "minimal tense electronic pulse with a claustrophobic building unease, sparse clicking percussion, no melody yet, then at the midpoint it releases into a warm, simple, unhurried piano and pad theme, sighing and spacious, 20 seconds, instrumental, no vocals"
+  }
+}

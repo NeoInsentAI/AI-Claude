@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1080, height=1920">
+    <title>Too Many Tabs</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --dark: #1c1410;
+        --red: #d8000f;
+        --light: #f5f2ef;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: var(--dark);
+        font-family: "Libre Baskerville", serif;
+      }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      .clip {
+        position: absolute;
+        inset: 0;
+      }
+      .label {
+        font-family: "Space Grotesk", sans-serif;
+        font-weight: 600;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }
+      .display {
+        font-family: "Shrikhand", cursive;
+        font-weight: 400;
+      }
+
+      /* ---------- Scene 1 : Too Many Tabs ---------- */
+      #scene1 {
+        background: var(--dark);
+        overflow: hidden;
+      }
+      #s1-glow {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 46%, rgba(216, 0, 15, 0.35), transparent 62%);
+        opacity: 0.5;
+        will-change: transform, opacity;
+      }
+      #s1-cursor {
+        position: absolute;
+        left: 50%;
+        top: 46%;
+        width: 6px;
+        height: 108px;
+        background: var(--red);
+        transform: translate(-50%, -50%);
+        opacity: 1;
+      }
+      .panel {
+        position: absolute;
+        background: var(--light);
+        border: 3px solid var(--dark);
+        will-change: transform, opacity;
+      }
+      .panel-inner {
+        padding: 20px 26px;
+      }
+      .panel-leftbar {
+        border: none;
+        border-left: 6px solid var(--red);
+        background: var(--dark);
+        padding: 20px 24px;
+      }
+      .panel-leftbar .line {
+        color: var(--light);
+        font-size: 26px;
+        line-height: 1.5;
+      }
+      .panel-leftbar .line + .line {
+        margin-top: 4px;
+      }
+      #panel-tabs {
+        top: 150px;
+        left: 30px;
+        right: 30px;
+        padding: 28px 32px;
+        border-bottom: 8px solid var(--red);
+      }
+      #panel-tabs .row {
+        display: flex;
+        gap: 30px;
+      }
+      #panel-tabs .tab {
+        color: var(--dark);
+        font-size: 26px;
+        opacity: 0.8;
+      }
+      #panel-chat {
+        left: 30px;
+        right: 30px;
+        bottom: 470px;
+        padding: 28px 30px;
+      }
+      #panel-chat .line {
+        font-size: 34px;
+      }
+      #panel-notes {
+        left: 30px;
+        top: 700px;
+        width: 620px;
+        padding: 26px 30px;
+      }
+      #panel-notes .line {
+        font-size: 30px;
+      }
+      #panel-run {
+        right: 30px;
+        top: 560px;
+        width: 420px;
+        padding: 24px 26px;
+        text-align: center;
+      }
+      #panel-run .label {
+        color: var(--dark);
+        font-size: 20px;
+        opacity: 0.7;
+      }
+      #panel-run .stat {
+        color: var(--red);
+        font-size: 108px;
+        line-height: 1;
+        transform: rotate(-4deg);
+        margin-top: 32px;
+      }
+      #panel-toast-a {
+        right: 40px;
+        top: 420px;
+        background: var(--red);
+        color: var(--bg);
+        padding: 20px 30px;
+        font-size: 26px;
+      }
+      #panel-toast-b {
+        left: 40px;
+        bottom: 330px;
+        background: var(--light);
+        color: var(--dark);
+        padding: 20px 30px;
+        font-size: 26px;
+        border: 3px solid var(--dark);
+      }
+
+      /* ---------- Scene 2 : It Clicks ---------- */
+      #scene2 {
+        overflow: hidden;
+        background: var(--light);
+      }
+      #s2-world {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        transform-origin: 50% 50%;
+        will-change: transform;
+      }
+      #s2-glow {
+        position: absolute;
+        width: 900px;
+        height: 900px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(216, 0, 15, 0.16), transparent 68%);
+        opacity: 0;
+      }
+      #s2-eyebrow {
+        position: absolute;
+        left: 90px;
+        top: 700px;
+        color: var(--red);
+        font-size: 22px;
+        opacity: 0;
+      }
+      #s2-close {
+        position: absolute;
+        left: 84px;
+        top: 900px;
+        width: 900px;
+        color: var(--red);
+        font-size: 128px;
+        line-height: 0.9;
+        transform: rotate(-5deg);
+        opacity: 0;
+        transform-origin: 0% 50%;
+      }
+      #s2-bar-track {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 12px;
+        background: rgba(28, 20, 16, 0.15);
+      }
+      #s2-bar-fill {
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 1080px;
+        height: 12px;
+        background: var(--red);
+        transform-origin: 0% 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-0dvs" id="root" data-composition-id="too-many-tabs" data-start="0" data-width="1080" data-height="1920" data-duration="20">
+      <!-- SCENE 1 : struggle -->
+      <section data-hf-id="hf-qv17" id="scene1" class="clip" data-start="0" data-duration="11">
+        <div data-hf-id="hf-4z5d" id="s1-glow" data-layout-allow-overflow="true"></div>
+        <div data-hf-id="hf-3who" id="s1-cursor"></div>
+
+        <div data-hf-id="hf-qwjq" id="panel-tabs" class="panel panel-inner">
+          <div data-hf-id="hf-thy4" class="row">
+            <span data-hf-id="hf-ibfy" class="label tab">tab 01</span>
+            <span data-hf-id="hf-ipqz" class="label tab">tab 02</span>
+            <span data-hf-id="hf-j420" class="label tab">tab 03</span>
+            <span data-hf-id="hf-gbwt" class="label tab">tab 04</span>
+          </div>
+        </div>
+
+        <div data-hf-id="hf-lxma" id="panel-chat" class="panel panel-leftbar">
+          <div data-hf-id="hf-4m0m" class="line">— got the model running?</div>
+          <div data-hf-id="hf-jtst" class="line">— not yet, still debugging</div>
+        </div>
+
+        <div data-hf-id="hf-ycex" id="panel-notes" class="panel panel-inner">
+          <div data-hf-id="hf-ko5z" class="line">— step 1: clean the data</div>
+          <div data-hf-id="hf-h787" class="line">— step 2: ???</div>
+        </div>
+
+        <div data-hf-id="hf-reqd" id="panel-run" class="panel panel-inner">
+          <div data-hf-id="hf-8b6z" class="label">run #14</div>
+          <div data-hf-id="hf-cpen" class="display stat">62%</div>
+        </div>
+
+        <div data-hf-id="hf-xvn2" id="panel-toast-a" class="panel label">new reply</div>
+        <div data-hf-id="hf-c353" id="panel-toast-b" class="panel label">3 unread</div>
+      </section>
+
+      <!-- SCENE 2 : release -->
+      <section data-hf-id="hf-zjw1" id="scene2" class="clip" data-start="11" data-duration="9">
+        <div data-hf-id="hf-fhwh" id="s2-world" data-layout-allow-overflow="true">
+          <div data-hf-id="hf-uawc" id="s2-glow"></div>
+          <div data-hf-id="hf-1fg0" id="s2-eyebrow" class="label">02:47 am</div>
+          <div data-hf-id="hf-wjzp" id="s2-close" class="display">there it is.</div>
+        </div>
+        <div data-hf-id="hf-apsk" id="s2-bar-track"></div>
+        <div data-hf-id="hf-tooo" id="s2-bar-fill"></div>
+      </section>
+
+      <!-- audio -->
+      <audio data-hf-id="hf-gtzi" id="bgm" src="assets/bgm/track.wav" data-start="0" data-duration="20" data-volume="0.9"></audio>
+      <audio data-hf-id="hf-pcv8" id="sfx-1" src="assets/sfx/click.mp3" data-start="0.6" data-duration="0.37" data-volume="0.35"></audio>
+      <audio data-hf-id="hf-zjp2" id="sfx-2" src="assets/sfx/notification.mp3" data-start="2.2" data-duration="2.46" data-volume="0.35"></audio>
+      <audio data-hf-id="hf-p3bm" id="sfx-3" src="assets/sfx/key-press.mp3" data-start="3.6" data-duration="0.4" data-volume="0.35"></audio>
+      <audio data-hf-id="hf-gbmx" id="sfx-4" src="assets/sfx/ping.mp3" data-start="4.8" data-duration="1.32" data-volume="0.35"></audio>
+      <audio data-hf-id="hf-7kfp" id="sfx-5" src="assets/sfx/click.mp3" data-start="5.8" data-duration="0.37" data-volume="0.35"></audio>
+      <audio data-hf-id="hf-v24q" id="sfx-6" src="assets/sfx/notification.mp3" data-start="6.6" data-duration="2.46" data-volume="0.35"></audio>
+      <audio data-hf-id="hf-rr2d" id="sfx-chime" src="assets/sfx/chime.mp3" data-start="13.9" data-duration="2.5" data-volume="0.4"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // ============ SCENE 1 : accumulating panels ============
+      const entrances = [
+        { sel: "#panel-tabs", from: { y: -140, x: 0 }, at: 0.6 },
+        { sel: "#panel-chat", from: { y: 160, x: 0 }, at: 2.2 },
+        { sel: "#panel-notes", from: { y: 0, x: -180 }, at: 3.6 },
+        { sel: "#panel-run", from: { y: 0, x: 180 }, at: 4.8 },
+        { sel: "#panel-toast-a", from: { y: -120, x: 120 }, at: 5.8 },
+        { sel: "#panel-toast-b", from: { y: 120, x: -120 }, at: 6.6 },
+      ];
+      entrances.forEach((e) => {
+        tl.fromTo(
+          e.sel,
+          { scale: 0, opacity: 0, x: e.from.x, y: e.from.y },
+          { scale: 1, opacity: 1, x: 0, y: 0, duration: 0.5, ease: "power3.out" },
+          e.at,
+        );
+      });
+      // deterministic per-panel idle jitter (small, phase-offset, settle-and-fade toward the cut)
+      const idlePeriods = [2.3, 2.6, 2.1, 2.8, 2.4, 2.7];
+      entrances.forEach((e, i) => {
+        const startAt = e.at + 0.5;
+        const dur = 11 - startAt;
+        const phase = { p: 0 };
+        const cyclesForPeriod = dur / idlePeriods[i];
+        tl.to(
+          phase,
+          {
+            p: Math.PI * 2 * cyclesForPeriod,
+            duration: dur,
+            ease: "none",
+            onUpdate: () => {
+              const t = phase.p / (Math.PI * 2 * cyclesForPeriod);
+              const env = t < 0.8 ? 1 : Math.max(0, (1 - t) / 0.2);
+              const s = Math.sin(phase.p) * env;
+              gsap.set(e.sel, { y: s * 3 });
+            },
+          },
+          startAt,
+        );
+      });
+
+      // ambient background glow — low-amplitude breathe, settles before the cut
+      (function () {
+        const phase = { p: 0 };
+        const cycles = 11 / 3;
+        tl.to(
+          phase,
+          {
+            p: Math.PI * 2 * cycles,
+            duration: 11,
+            ease: "none",
+            onUpdate: () => {
+              const t = phase.p / (Math.PI * 2 * cycles);
+              const env = t < 0.85 ? 1 : Math.max(0, (1 - t) / 0.15);
+              const s = Math.sin(phase.p) * env;
+              gsap.set("#s1-glow", { opacity: 0.5 + s * 0.08, scale: 1 + s * 0.015 });
+            },
+          },
+          0,
+        );
+      })();
+
+      // cursor blink — deterministic square wave, quiets in the last half-second
+      for (let t = 0; t < 10.5; t += 0.4) {
+        tl.set("#s1-cursor", { opacity: 0 }, t + 0.2);
+        tl.set("#s1-cursor", { opacity: 1 }, t + 0.4);
+      }
+      tl.set("#s1-cursor", { opacity: 0.15 }, 10.5);
+
+      // ============ SCENE 2 : the release ============
+      // camera math — single wrapper, T = -offset * S (viewport-change.md)
+      const CANVAS_W = 1080,
+        CANVAS_H = 1920;
+      const ANCHOR_X = 994,
+        ANCHOR_Y = 1914; // leading edge of the progress-bar fill at rest (92% across)
+      const offsetX = ANCHOR_X - CANVAS_W / 2;
+      const offsetY = ANCHOR_Y - CANVAS_H / 2;
+      const S0 = 6;
+      const cam = { scale: S0, x: -offsetX * S0, y: -offsetY * S0 };
+      const world = document.getElementById("s2-world");
+      function applyCamera() {
+        world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.scale})`;
+      }
+      tl.call(applyCamera, [], 11); // seed the opening pose right as scene 2 begins
+
+      // micro-action: the fill completes its last stretch while the camera holds tight
+      tl.fromTo(
+        "#s2-bar-fill",
+        { scaleX: 0.92 },
+        { scaleX: 1, duration: 1.8, ease: "power2.out" },
+        11.2,
+      );
+
+      // the reveal — one continuous decelerating zoom-out, then camera is done for good
+      tl.to(
+        cam,
+        { scale: 1, x: 0, y: 0, duration: 0.7, ease: "expo.out", onUpdate: applyCamera },
+        13.2,
+      );
+
+      // the payoff lands as the frame locks
+      tl.fromTo(
+        "#s2-eyebrow",
+        { opacity: 0, y: 16 },
+        { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" },
+        13.9,
+      );
+      tl.fromTo(
+        "#s2-close",
+        { scale: 0, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.6, ease: "power3.out" },
+        13.9,
+      );
+
+      // ambient glow bloom behind the card — blooms in, holds a bounded breathe, settles
+      (function () {
+        gsap.set("#s2-glow", { xPercent: -50, yPercent: -50, left: "50%", top: "62%" });
+        tl.to("#s2-glow", { opacity: 1, duration: 1.2, ease: "power2.out" }, 13.9);
+        const phase = { p: 0 };
+        const dur = 20 - 15.1;
+        const cycles = dur / 3;
+        tl.to(
+          phase,
+          {
+            p: Math.PI * 2 * cycles,
+            duration: dur,
+            ease: "none",
+            onUpdate: () => {
+              const t = phase.p / (Math.PI * 2 * cycles);
+              const env = t < 0.75 ? 1 : Math.max(0, (1 - t) / 0.25);
+              const s = Math.sin(phase.p) * env;
+              gsap.set("#s2-glow", { scale: 1 + s * 0.02 });
+            },
+          },
+          15.1,
+        );
+      })();
+
+      window.__timelines["too-many-tabs"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

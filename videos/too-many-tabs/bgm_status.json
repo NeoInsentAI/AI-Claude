@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-09-15T13:33:37.982Z",
+  "enabled": true,
+  "provider": "musicgen",
+  "mode": "detached-seed-loop",
+  "path": "assets/bgm/track.wav",
+  "log": "/Users/sera/AI-Claude/videos/too-many-tabs/assets/bgm/bgm-1789478659959.log",
+  "pid": 52755,
+  "target_duration_s": 30,
+  "seed_duration_s": 28,
+  "loop_count": 2,
+  "timeout_ms": 600000,
+  "status": "ready",
+  "ready": true,
+  "waited_ms": 145818,
+  "size_bytes": 1920044,
+  "message": "BGM ready at assets/bgm/track.wav."
+}
