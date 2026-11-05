@@ -489,6 +489,6 @@ add_run(p,
     italic=True, size=9, color=RGBColor(0x88,0x88,0x88))
 
 # ── Save ──────────────────────────────────────────────────────────────────────
-out = '/Users/sera/AI-Claude/projects/Kimo-Propuesta-Web-2026.docx'
+out = '/Users/sera/AI-Claude/clients/kimo/Kimo-Propuesta-Web-2026.docx'
 doc.save(out)
 print(f'Saved: {out}')
